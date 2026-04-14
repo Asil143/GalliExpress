@@ -9,7 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
-import { Colors, Fonts, Spacing, Radius, Shadows } from '../../../../../shared/theme';
+import { Colors, Fonts, Spacing, Radius, Shadows } from '../../../../shared/theme';
 
 export default function AddressScreen({ navigation }) {
   const [addresses, setAddresses] = useState([]);

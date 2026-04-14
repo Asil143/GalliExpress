@@ -8,7 +8,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import firestore from '@react-native-firebase/firestore';
-import { Colors, Fonts, Spacing, Radius, Shadows } from '../../../../../shared/theme';
+import { Colors, Fonts, Spacing, Radius, Shadows } from '../../../../shared/theme';
 
 const STATUS_FLOW = [
   { key: 'pending', label: 'పెండింగ్', icon: 'time-outline' },
