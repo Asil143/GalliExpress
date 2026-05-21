@@ -1,77 +1,129 @@
-<h1 align="center">
-  <br>
-  🛵 GalliExpress
-  <br>
-</h1>
-
-<h3 align="center">Hyperlocal food delivery built for Tier-3 India.</h3>
+<h1 align="center">GalliExpress</h1>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/React_Native-Expo-0070f3?style=flat-square&logo=expo" />
-  <img src="https://img.shields.io/badge/Firebase-Auth%20%2B%20Firestore-f5820d?style=flat-square&logo=firebase" />
+  <strong>Hyperlocal delivery for Tier-3 India. Built for the towns Swiggy and Zomato don't reach.</strong>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Platform-Android_(React_Native)-black?style=flat-square&logo=android" />
+  <img src="https://img.shields.io/badge/Backend-Firebase_(Auth_%2B_Firestore_%2B_FCM)-f5820d?style=flat-square&logo=firebase" />
   <img src="https://img.shields.io/badge/Language-Telugu_%2F_English-blueviolet?style=flat-square" />
-  <img src="https://img.shields.io/badge/Apps-3_in_1-black?style=flat-square" />
-  <img src="https://img.shields.io/badge/Region-Andhra_Pradesh-green?style=flat-square" />
-</p>
-
-<p align="center">
-  Swiggy and Zomato don't reach Addanki. GalliExpress does.
-  <br>
-  Built for the towns, in the language of the towns.
+  <img src="https://img.shields.io/badge/Apps-3_(Customer_%2B_Partner_%2B_Rider)-0070f3?style=flat-square" />
+  <img src="https://img.shields.io/badge/Status-Under_Active_Development-orange?style=flat-square" />
 </p>
 
 ---
 
-## What is GalliExpress?
+## The Problem
 
-GalliExpress is a 3-sided hyperlocal delivery marketplace for Tier-3 towns in Andhra Pradesh. It connects local restaurants and kirana shops with customers and delivery riders — all through native Telugu + English apps.
+India has **640,000 villages** and thousands of Tier-3 towns. Swiggy operates in ~580 cities. Zomato in ~800.
 
-The name "Galli" (గల్లీ) means street or lane in Telugu. This platform is built for delivery right to your galli.
+That leaves hundreds of millions of people — working in local restaurants, ordering from kirana shops, delivering goods on bikes — with no digital delivery infrastructure at all.
 
-**Three complete React Native apps in one repo:**
+Addanki (అడ్డంకి), Andhra Pradesh. Population: ~50,000. Active local restaurants, grocery stores, vegetable vendors, bakeries. No delivery app. Customers can't order from their phone. Shops can't go digital. Riders have no platform to earn on.
 
-| App | Who it's for | Key Features |
-|-----|-------------|--------------|
-| **Customer App** | People ordering | Browse shops, cart, OTP checkout, live tracking |
-| **Partner App** | Shop / restaurant owners | Order management, menu editor, earnings dashboard |
-| **Rider App** | Delivery partners | Accept deliveries, navigation, payout tracking |
+That's the gap GalliExpress is built to fill.
 
 ---
 
-## Features
+## What GalliExpress Does
 
-### 🛒 Customer App
-- Browse local shops by category (food, grocery, vegetables)
-- Live shop status (open/closed, prep time)
-- Cart with GalliCoins loyalty rewards
-- OTP-based checkout (no password needed)
-- Real-time order tracking
-- Order history and reorder
-- Address management with location picker
-- Rate & review orders
+GalliExpress is a 3-sided delivery marketplace — three separate apps, one platform, built specifically for Tier-3 Andhra Pradesh towns.
+
+The name comes from **గల్లీ (galli)** — the Telugu word for street or lane. *"Delivery to your street."*
+
+---
+
+## Three Apps, One Platform
+
+### Customer App
+What a person in Addanki actually needs to order food or groceries:
+
+- Browse shops by category (food, grocery, vegetables, fruits, dairy, bakery, sweets, beverages, stationery, personal care, **pooja items**)
+- Time-aware greeting (Good Morning / Good Afternoon / Good Evening) based on device time
+- Live shop status (open/closed, estimated prep time, minimum order)
+- Add to cart with GalliCoins loyalty rewards
+- Checkout with **OTP only** — no passwords, no email required
+- UPI and Cash on Delivery payment options
+- Real-time order tracking (Order Placed → Confirmed → Preparing → On the Way → Delivered)
+- Order history and one-tap reorder
+- Address management with local town selector
+- Rate and review after delivery
 - In-app help and support
 
-### 🏪 Partner App
-- Real-time incoming orders with accept/reject
-- Menu management (add/edit/remove items with photos)
-- Shop settings (hours, delivery radius, min order)
-- Earnings breakdown (daily/weekly/monthly)
-- Push notifications for new orders
-- Shop onboarding flow
+**The "Pooja Items" category** is not in Swiggy. It's there because that's what people in Andhra Pradesh actually buy. Every category decision was made based on what local shops actually sell.
 
-### 🏍️ Rider App
-- Available order feed with distance and payout
-- Active delivery with navigation
-- Delivery confirmation (OTP or photo)
-- Earnings history
-- Rider profile and documents
+### Partner App
+For local shop owners and restaurant owners:
 
-### 🌐 Shared Infrastructure
-- Telugu + English throughout (full bilingual UI)
-- Firebase Phone Auth (OTP — no passwords)
-- Real-time Firestore for order state machine
-- Firebase Cloud Messaging (push notifications)
-- Shared theme, strings, and utility layer across all 3 apps
+- Real-time incoming orders with Accept/Reject
+- Tap to mark order ready for pickup
+- Full menu management — add items with photos, edit prices, pause items
+- Shop settings: hours, minimum order, delivery radius
+- Earnings dashboard (daily/weekly/monthly breakdown)
+- Shop onboarding flow for new partners
+- Push notifications for every new order
+
+### Rider App
+For delivery partners on bikes and scooters:
+
+- Available deliveries feed with distance, payout, and estimated time
+- Accept delivery → navigate to shop → pick up → navigate to customer → confirm delivery
+- Delivery confirmation by OTP or photo
+- Earnings history and daily total
+- Online/Offline toggle
+- Vehicle and license verification during onboarding
+- UPI bank details for direct payouts
+
+---
+
+## Why It's Built the Way It Is
+
+Every technical decision maps to a real constraint in Tier-3 India:
+
+| Decision | Why |
+|----------|-----|
+| **OTP-only auth (no email)** | Most users prefer phone. Many don't regularly use email. |
+| **Telugu + English UI** | Not everyone is comfortable in English. Local language = trust. |
+| **COD payment option** | UPI adoption is growing but cash is still the dominant payment mode in rural AP. |
+| **No minimum order** | Local kirana shops have low average order values. A ₹50 minimum would exclude real orders. |
+| **Pooja items category** | That's what local shops sell. The platform serves the actual market, not a hypothetical one. |
+| **Addanki GPS coordinates hardcoded** | `15.8289° N, 80.0207° E` — this app was built for one specific town first. Expand from there. |
+| **GalliPassActive field in user schema** | Subscription service planned. Build the data model before the feature. |
+
+---
+
+## Data Model
+
+Three verified participant types, each with their own Firestore collection:
+
+```
+users        → OTP phone auth, saved addresses, GalliCoins, order history
+partners     → shop profile, category (in Telugu), bank details (IFSC/UPI), commission rate
+riders       → vehicle details, license number, GPS location, earnings, online status
+orders       → order lifecycle (6 statuses), items, amounts, delivery fee, rider assignment
+categories   → shop categories (stored in Telugu: ఆహారం, కిరాణా, కూరగాయలు...)
+```
+
+Security rules enforced: customers read their own data, partners read their own orders, riders see only unassigned deliveries in their town.
+
+---
+
+## Business Model
+
+**Commission rates:**
+- Food restaurants: 12–15%
+- Grocery / Kirana: 8–10%
+- Self-delivery shops (partner uses own rider): 5–7%
+
+**Delivery fee:**
+- Above ₹300 order → ₹0 (free delivery)
+- ₹150–₹299 → ₹20
+- Below ₹150 → ₹30
+
+**Rider payout:** ₹30 per completed delivery, direct UPI transfer.
+
+**GalliPass (planned):** Monthly subscription for customers — free delivery on all orders, priority support, exclusive deals. The `galliPassActive` and `galliPassExpiry` fields are already in the user schema.
 
 ---
 
@@ -81,14 +133,14 @@ The name "Galli" (గల్లీ) means street or lane in Telugu. This platform
 |-------|-----------|
 | Frontend | React Native + Expo |
 | Navigation | React Navigation 6 (Stack + Bottom Tabs) |
-| Backend | Firebase (Auth + Firestore + Storage + FCM) |
-| Real-time | Firestore `onSnapshot` listeners |
+| Auth | Firebase Phone Authentication (OTP) |
+| Database | Firebase Firestore (real-time `onSnapshot`) |
+| Storage | Firebase Storage (shop photos, menu images) |
+| Push Notifications | Firebase Cloud Messaging |
 | Location | Expo Location + Google Places Autocomplete |
 | Maps | React Native Maps |
-| Payments | COD + UPI via Razorpay (configured) |
-| Notifications | Firebase Cloud Messaging |
+| Payments | UPI + COD (Razorpay integration planned) |
 | Build | EAS Build (Expo Application Services) |
-| Auth | Firebase Phone Auth (OTP) |
 
 ---
 
@@ -96,50 +148,38 @@ The name "Galli" (గల్లీ) means street or lane in Telugu. This platform
 
 ```
 GalliExpress/
-├── shared/
-│   ├── theme.js           ← Colors, typography, spacing
-│   ├── strings.js         ← All UI text in Telugu + English
-│   ├── utils.js           ← Formatting, delivery fee calculator
-│   └── addressData.js     ← Town/district data for AP
+├── shared/                         ← Used by all 3 apps
+│   ├── theme.js                    ← Colors, fonts, spacing
+│   ├── strings.js                  ← All UI text (English + Telugu)
+│   ├── utils.js                    ← Delivery fee calc, formatters
+│   └── addressData.js              ← Towns and districts in AP
 │
-├── customer-app/
-│   └── src/
-│       ├── screens/
-│       │   ├── home/      ← Shop feed, categories
-│       │   ├── shop/      ← Shop detail, menu
-│       │   ├── cart/      ← Cart management
-│       │   ├── checkout/  ← Address, payment
-│       │   ├── tracking/  ← Live order tracking
-│       │   ├── profile/   ← Orders, addresses, settings
-│       │   ├── search/    ← Search shops and items
-│       │   └── rating/    ← Post-delivery rating
-│       ├── context/
-│       │   └── CartContext.js   ← Global cart state
-│       └── services/
-│           ├── GalliCoinsService.js    ← Loyalty points logic
-│           └── NotificationService.js ← FCM handler
+├── customer-app/src/screens/
+│   ├── home/         ← Shop feed, categories, search
+│   ├── shop/         ← Shop detail, menu browsing
+│   ├── cart/         ← Cart management + GalliCoins
+│   ├── checkout/     ← Address, payment method
+│   ├── tracking/     ← Live order status
+│   ├── profile/      ← Orders, addresses, settings
+│   ├── rating/       ← Post-delivery rating
+│   └── support/      ← Help and contact
 │
-├── partner-app/
-│   └── src/
-│       ├── screens/
-│       │   ├── dashboard/ ← Orders overview, stats
-│       │   ├── orders/    ← Incoming + active orders
-│       │   ├── menu/      ← Menu management
-│       │   └── earnings/  ← Revenue breakdown
-│       └── context/
-│           └── ShopContext.js   ← Shop state management
+├── partner-app/src/screens/
+│   ├── dashboard/    ← Order overview, today's stats
+│   ├── orders/       ← Incoming + active orders (real-time)
+│   ├── menu/         ← Menu management
+│   ├── earnings/     ← Revenue breakdown
+│   └── onboarding/   ← Shop setup wizard
 │
-├── rider-app/
-│   └── src/
-│       ├── screens/
-│       │   ├── home/      ← Available deliveries
-│       │   ├── delivery/  ← Active delivery + navigation
-│       │   ├── earnings/  ← Payout history
-│       │   └── profile/   ← Rider profile + docs
+├── rider-app/src/screens/
+│   ├── home/         ← Available deliveries
+│   ├── delivery/     ← Active delivery + navigation
+│   ├── earnings/     ← Payout history
+│   └── profile/      ← Rider docs, vehicle info
 │
-├── FIREBASE_SCHEMA.js     ← Firestore collections + security rules
-├── firestore.rules        ← Production security rules
-├── storage.rules          ← Firebase Storage rules
+├── FIREBASE_SCHEMA.js             ← Full Firestore schema + security rules
+├── firestore.rules                ← Production security rules
+├── storage.rules                  ← Firebase Storage rules
 └── legal/
     ├── terms.html
     └── privacy.html
@@ -147,40 +187,20 @@ GalliExpress/
 
 ---
 
-## Delivery Fee Model
-
-```js
-// Free above ₹300, tiered below
-if (subtotal >= 300) → ₹0
-if (subtotal >= 150) → ₹20
-else                 → ₹30
-```
-
-Rider payout: **₹30 per delivery** (configured in rider-app).
-
-Commission rates by category:
-- Food restaurants: 12–15%
-- Grocery / Kirana: 8–10%
-- Self-delivery shops: 5–7%
-
----
-
 ## Getting Started
 
 ### 1. Firebase Setup
-
-Create a Firebase project at [console.firebase.google.com](https://console.firebase.google.com), then enable:
+Create a project at [console.firebase.google.com](https://console.firebase.google.com). Enable:
 - **Phone Authentication**
-- **Firestore Database** (region: `asia-south1`)
-- **Firebase Storage**
+- **Firestore** (region: `asia-south1` for lowest latency in AP)
+- **Storage**
 - **Cloud Messaging**
 
 Copy your config into `shared/firebase.js`.
 
-### 2. Install Dependencies
+### 2. Install
 
 ```bash
-# Run in each app folder
 cd customer-app && npm install
 cd ../partner-app && npm install
 cd ../rider-app && npm install
@@ -193,28 +213,35 @@ cd customer-app
 npx expo start --android
 ```
 
-Press `a` for Android emulator, or scan QR code with Expo Go on a physical device.
-
 ### 4. Build APK
 
 ```bash
-npm install -g eas-cli
-eas login
-# In each app folder:
+npm install -g eas-cli && eas login
 eas build --platform android --profile preview
 ```
 
 ---
 
-## Why Tier-3?
+## What's Coming
 
-Swiggy and Zomato operate in 500+ cities — but India has 640,000 villages and thousands of small towns. Addanki (population ~50,000) has active local restaurants with no digital presence.
+- [ ] Full Telugu UI (current strings file is English; Telugu strings labeled `teluguU` in schema)
+- [ ] WhatsApp order confirmation (Wati.io or Twilio)
+- [ ] Razorpay UPI integration (live payments)
+- [ ] GalliPass subscription
+- [ ] Multi-town expansion (Narasaraopet, Ongole, Chirala)
+- [ ] Admin panel for monitoring orders and payouts
+- [ ] Rider GPS tracking on customer tracking screen
+- [ ] Weekly earnings payout automation
 
-GalliExpress is built for exactly these towns:
-- OTP auth (no email required — most users prefer phone)
-- Telugu UI (not everyone is comfortable in English)
-- Low data mode (images are optimized, Firestore reads are minimal)
-- COD support (UPI adoption is growing, but cash is still king in rural AP)
+---
+
+## Why This Matters
+
+India's digital economy is growing fast — but growth is concentrated in Tier-1 and Tier-2 cities. The infrastructure gap in Tier-3 towns and rural areas is massive. Local businesses in these towns have no way to go digital. Riders have no platform to earn. Customers have to physically walk to shops.
+
+GalliExpress starts with Addanki because that's what we know. The same model works for any Tier-3 town in Andhra Pradesh, Telangana, and beyond. The platform is designed to expand town-by-town — not flood the market with a half-built product.
+
+Local. Specific. Real.
 
 ---
 
@@ -225,7 +252,5 @@ MIT
 ---
 
 <p align="center">
-  <strong>మీ గల్లికి డెలివరీ 🛵</strong>
-  <br>
-  <em>Delivery to your street.</em>
+  <strong>మీ గల్లికి డెలివరీ</strong> · Delivery to your street
 </p>
