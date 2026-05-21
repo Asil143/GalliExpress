@@ -3,27 +3,64 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator,
+  Modal, TextInput, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import firestore from '@react-native-firebase/firestore';
-import auth from '@react-native-firebase/auth';
 import { Colors, Fonts, Spacing, Radius, Shadows } from '../../../../shared/theme';
 import { formatPrice, formatDate } from '../../../../shared/utils';
 import { OrderStatus } from '../../../../shared/theme';
+import { useShop } from '../../context/ShopContext';
 
-const PERIODS = ['ఈరోజు', 'ఈ వారం', 'ఈ నెల'];
+const PERIODS = ['Today', 'This Week', 'This Month'];
 
 export default function EarningsScreen() {
+  const { shopId } = useShop();
   const [period, setPeriod] = useState(0);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const user = auth().currentUser;
-  const COMMISSION_RATE = 0.12; // 12%
+  const [showBankModal, setShowBankModal] = useState(false);
+  const [bankDetails, setBankDetails] = useState({ accountHolder: '', accountNumber: '', ifsc: '', upiId: '' });
+  const [bankSaving, setBankSaving] = useState(false);
+  const COMMISSION_RATE = 0.12;
 
   useEffect(() => {
-    loadEarnings();
-  }, [period]);
+    if (!shopId) return;
+    firestore().collection('shops').doc(shopId).get().then(snap => {
+      if (snap.exists && snap.data().bankDetails) {
+        setBankDetails(snap.data().bankDetails);
+      }
+    });
+  }, [shopId]);
+
+  const saveBankDetails = async () => {
+    if (!bankDetails.accountHolder.trim()) {
+      Alert.alert('Required', 'Please enter account holder name');
+      return;
+    }
+    if (!bankDetails.upiId.trim() && !bankDetails.accountNumber.trim()) {
+      Alert.alert('Required', 'Please enter UPI ID or bank account number');
+      return;
+    }
+    setBankSaving(true);
+    try {
+      await firestore().collection('shops').doc(shopId).update({
+        bankDetails,
+        updatedAt: firestore.FieldValue.serverTimestamp(),
+      });
+      setShowBankModal(false);
+      Alert.alert('✅ Saved', 'Bank details updated. Payments processed every Monday.');
+    } catch {
+      Alert.alert('Error', 'Failed to save bank details. Try again.');
+    } finally {
+      setBankSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    if (shopId) loadEarnings();
+  }, [period, shopId]);
 
   const getStartDate = () => {
     const now = new Date();
@@ -34,15 +71,23 @@ export default function EarningsScreen() {
 
   const loadEarnings = async () => {
     setLoading(true);
-    const startDate = getStartDate();
-    const snap = await firestore()
-      .collection('orders')
-      .where('shopId', '==', user?.uid)
-      .where('status', '==', OrderStatus.DELIVERED)
-      .where('createdAt', '>=', firestore.Timestamp.fromDate(startDate))
-      .orderBy('createdAt', 'desc')
-      .get();
-    setOrders(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    try {
+      const startDate = getStartDate();
+      const snap = await firestore()
+        .collection('orders')
+        .where('shopId', '==', shopId)
+        .where('status', '==', OrderStatus.DELIVERED)
+        .get();
+      const all = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((o) => {
+          const date = o.createdAt?.toDate?.() || new Date(0);
+          return date >= startDate;
+        })
+        .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+      setOrders(all);
+    } catch (e) {
+    }
     setLoading(false);
   };
 
@@ -53,7 +98,7 @@ export default function EarningsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>సంపాదన</Text>
+        <Text style={styles.headerTitle}>Earnings</Text>
       </View>
 
       <ScrollView>
@@ -72,16 +117,16 @@ export default function EarningsScreen() {
 
         {/* Main Earnings Card */}
         <LinearGradient colors={['#1C1C2E', '#3D3D5C']} style={styles.earningsCard}>
-          <Text style={styles.earningsLabel}>నికర సంపాదన</Text>
+          <Text style={styles.earningsLabel}>Net Earnings</Text>
           <Text style={styles.earningsMain}>{formatPrice(netEarnings)}</Text>
           <View style={styles.earningsRow}>
             <View style={styles.earningsItem}>
-              <Text style={styles.earningsItemLabel}>మొత్తం అమ్మకాలు</Text>
+              <Text style={styles.earningsItemLabel}>Total Sales</Text>
               <Text style={styles.earningsItemValue}>{formatPrice(totalRevenue)}</Text>
             </View>
             <View style={styles.earningsDivider} />
             <View style={styles.earningsItem}>
-              <Text style={styles.earningsItemLabel}>GalliExpress కమీషన్ (12%)</Text>
+              <Text style={styles.earningsItemLabel}>GalliExpress Commission (12%)</Text>
               <Text style={[styles.earningsItemValue, { color: Colors.error }]}>
                 − {formatPrice(totalCommission)}
               </Text>
@@ -91,23 +136,23 @@ export default function EarningsScreen() {
 
         {/* Quick Stats */}
         <View style={styles.statsRow}>
-          <StatBox value={orders.length} label="డెలివర్ అయిన ఆర్డర్లు" emoji="📦" />
+          <StatBox value={orders.length} label="Delivered Orders" emoji="📦" />
           <StatBox
             value={orders.length > 0 ? formatPrice(totalRevenue / orders.length) : '₹0'}
-            label="సగటు ఆర్డర్ విలువ"
+            label="Avg Order Value"
             emoji="📊"
           />
         </View>
 
         {/* Orders List */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>ఆర్డర్ల వివరాలు</Text>
+          <Text style={styles.sectionTitle}>Order Details</Text>
           {loading ? (
             <ActivityIndicator color={Colors.primary} style={{ padding: 32 }} />
           ) : orders.length === 0 ? (
             <View style={styles.empty}>
               <Text style={styles.emptyEmoji}>💰</Text>
-              <Text style={styles.emptyText}>ఈ కాలానికి డేటా లేదు</Text>
+              <Text style={styles.emptyText}>No data for this period</Text>
             </View>
           ) : (
             orders.map((order) => (
@@ -122,7 +167,7 @@ export default function EarningsScreen() {
                 <View style={styles.orderRowRight}>
                   <Text style={styles.orderRowTotal}>{formatPrice(order.total)}</Text>
                   <Text style={styles.orderRowNet}>
-                    నికరం: {formatPrice(order.total * (1 - COMMISSION_RATE))}
+                    Net: {formatPrice(order.total * (1 - COMMISSION_RATE))}
                   </Text>
                 </View>
               </View>
@@ -132,16 +177,110 @@ export default function EarningsScreen() {
 
         {/* Payout Info */}
         <View style={styles.payoutCard}>
-          <Text style={styles.payoutTitle}>💳 చెల్లింపు సమాచారం</Text>
-          <Text style={styles.payoutText}>
-            మీ నికర సంపాదన ప్రతి సోమవారం మీ బ్యాంక్ ఖాతాకు జమ అవుతుంది.
-            {'\n'}కమీషన్ రేటు: 12% (ఆర్డర్ మొత్తంపై)
-          </Text>
-          <TouchableOpacity style={styles.payoutBtn}>
-            <Text style={styles.payoutBtnText}>బ్యాంక్ వివరాలు జోడించు</Text>
-          </TouchableOpacity>
+          <Text style={styles.payoutTitle}>💳 Payment Info</Text>
+          <Text style={styles.payoutSub}>Commission rate: 12% · Payouts every Monday</Text>
+          {bankDetails.accountHolder ? (
+            <>
+              <View style={styles.bankRow}>
+                <Text style={styles.bankLabel}>Account Holder</Text>
+                <Text style={styles.bankValue}>{bankDetails.accountHolder}</Text>
+              </View>
+              {bankDetails.upiId ? (
+                <View style={styles.bankRow}>
+                  <Text style={styles.bankLabel}>UPI ID</Text>
+                  <Text style={styles.bankValue}>{bankDetails.upiId}</Text>
+                </View>
+              ) : null}
+              {bankDetails.accountNumber ? (
+                <View style={styles.bankRow}>
+                  <Text style={styles.bankLabel}>Account No.</Text>
+                  <Text style={styles.bankValue}>****{bankDetails.accountNumber.slice(-4)}</Text>
+                </View>
+              ) : null}
+              {bankDetails.ifsc ? (
+                <View style={styles.bankRow}>
+                  <Text style={styles.bankLabel}>IFSC</Text>
+                  <Text style={styles.bankValue}>{bankDetails.ifsc}</Text>
+                </View>
+              ) : null}
+              <TouchableOpacity style={[styles.payoutBtn, { marginTop: 14, backgroundColor: Colors.dark }]} onPress={() => setShowBankModal(true)}>
+                <Text style={styles.payoutBtnText}>Edit Bank Details</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <Text style={styles.payoutText}>
+                Add your bank account or UPI ID to receive weekly payouts automatically.
+              </Text>
+              <TouchableOpacity style={styles.payoutBtn} onPress={() => setShowBankModal(true)}>
+                <Text style={styles.payoutBtnText}>Add Bank Details</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </ScrollView>
+
+      {/* Bank Details Modal */}
+      <Modal visible={showBankModal} transparent animationType="slide">
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowBankModal(false)}>
+          <TouchableOpacity style={styles.modalCard} activeOpacity={1}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>💳 Bank Account Details</Text>
+            <Text style={styles.modalSubText}>Your details are encrypted and secure</Text>
+
+            <Text style={styles.fieldLabel}>Account Holder Name *</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Full name as on bank account"
+              placeholderTextColor={Colors.lightGrey}
+              value={bankDetails.accountHolder}
+              onChangeText={t => setBankDetails(prev => ({ ...prev, accountHolder: t }))}
+            />
+
+            <Text style={styles.fieldLabel}>UPI ID (Recommended)</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="e.g. shopname@paytm"
+              placeholderTextColor={Colors.lightGrey}
+              value={bankDetails.upiId}
+              onChangeText={t => setBankDetails(prev => ({ ...prev, upiId: t }))}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+
+            <Text style={styles.fieldLabel}>Bank Account Number</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="e.g. 1234567890"
+              placeholderTextColor={Colors.lightGrey}
+              value={bankDetails.accountNumber}
+              onChangeText={t => setBankDetails(prev => ({ ...prev, accountNumber: t }))}
+              keyboardType="numeric"
+            />
+
+            <Text style={styles.fieldLabel}>IFSC Code</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="e.g. SBIN0001234"
+              placeholderTextColor={Colors.lightGrey}
+              value={bankDetails.ifsc}
+              onChangeText={t => setBankDetails(prev => ({ ...prev, ifsc: t.toUpperCase() }))}
+              autoCapitalize="characters"
+            />
+
+            <TouchableOpacity
+              style={[styles.modalSaveBtn, bankSaving && { opacity: 0.6 }]}
+              onPress={saveBankDetails}
+              disabled={bankSaving}
+            >
+              {bankSaving
+                ? <ActivityIndicator color={Colors.white} />
+                : <Text style={styles.modalSaveBtnText}>Save Details</Text>
+              }
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -221,11 +360,39 @@ const styles = StyleSheet.create({
     marginBottom: 32, borderRadius: Radius.xl, padding: Spacing.lg,
     borderWidth: 1, borderColor: Colors.border, ...Shadows.sm,
   },
-  payoutTitle: { fontSize: Fonts.sizes.md, fontWeight: '700', color: Colors.dark, marginBottom: 10 },
+  payoutTitle: { fontSize: Fonts.sizes.md, fontWeight: '700', color: Colors.dark, marginBottom: 4 },
+  payoutSub: { fontSize: Fonts.sizes.xs, color: Colors.grey, marginBottom: 12 },
   payoutText: { fontSize: Fonts.sizes.sm, color: Colors.grey, lineHeight: 20, marginBottom: 14 },
   payoutBtn: {
     backgroundColor: Colors.dark, paddingVertical: 10,
     borderRadius: Radius.md, alignItems: 'center',
   },
   payoutBtnText: { color: Colors.white, fontWeight: '700', fontSize: Fonts.sizes.sm },
+  bankRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 7, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  bankLabel: { fontSize: Fonts.sizes.sm, color: Colors.grey },
+  bankValue: { fontSize: Fonts.sizes.sm, fontWeight: '600', color: Colors.dark },
+  // Modal
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalCard: {
+    backgroundColor: Colors.white, borderTopLeftRadius: 28,
+    borderTopRightRadius: 28, padding: Spacing.xl, paddingBottom: 40, gap: Spacing.sm,
+  },
+  modalHandle: {
+    width: 40, height: 4, borderRadius: 2,
+    backgroundColor: Colors.border, alignSelf: 'center', marginBottom: Spacing.sm,
+  },
+  modalTitle: { fontSize: Fonts.sizes.xl, fontWeight: '800', color: Colors.dark },
+  modalSubText: { fontSize: Fonts.sizes.sm, color: Colors.grey },
+  fieldLabel: { fontSize: Fonts.sizes.sm, fontWeight: '700', color: Colors.dark, marginTop: Spacing.sm },
+  modalInput: {
+    backgroundColor: Colors.background, borderRadius: Radius.md,
+    borderWidth: 1.5, borderColor: Colors.border,
+    paddingHorizontal: Spacing.md, paddingVertical: 12,
+    fontSize: Fonts.sizes.md, color: Colors.dark,
+  },
+  modalSaveBtn: {
+    backgroundColor: Colors.primary, borderRadius: Radius.md,
+    paddingVertical: 14, alignItems: 'center', marginTop: Spacing.sm,
+  },
+  modalSaveBtnText: { color: Colors.white, fontWeight: '800', fontSize: Fonts.sizes.md },
 });

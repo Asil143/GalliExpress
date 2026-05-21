@@ -11,30 +11,43 @@ import auth from '@react-native-firebase/auth';
 import AppNavigator from './src/navigation/AppNavigator';
 import AuthNavigator from './src/navigation/AuthNavigator';
 import SplashScreen from './src/screens/SplashScreen';
+import ShopSetupScreen from './src/screens/onboarding/ShopSetupScreen';
+import { ShopProvider, useShop } from './src/context/ShopContext';
 import { Colors } from '../shared/theme';
+import { registerFCMToken, requestNotificationPermission, setupForegroundMessaging } from './src/services/NotificationService';
 
-export default function App() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+function RootNavigator() {
+  const { shop, shopId, loading } = useShop();
+  const [user, setUser] = useState(undefined);
 
   useEffect(() => {
     const unsub = auth().onAuthStateChanged((u) => {
       setUser(u);
-      setLoading(false);
+      if (u) {
+        requestNotificationPermission().then(() => registerFCMToken());
+        setupForegroundMessaging();
+      }
     });
     return unsub;
   }, []);
 
-  if (loading) return <SplashScreen />;
+  if (user === undefined || loading) return <SplashScreen />;
+  if (!user) return <AuthNavigator />;
+  if (!shopId) return <ShopSetupScreen />;
+  return <AppNavigator />;
+}
 
+export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <NavigationContainer>
-          <StatusBar style="dark" backgroundColor={Colors.white} />
-          {user ? <AppNavigator /> : <AuthNavigator />}
-        </NavigationContainer>
-        <Toast />
+        <ShopProvider>
+          <NavigationContainer>
+            <StatusBar style="dark" backgroundColor={Colors.white} />
+            <RootNavigator />
+          </NavigationContainer>
+          <Toast />
+        </ShopProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

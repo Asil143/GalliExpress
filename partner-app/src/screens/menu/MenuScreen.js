@@ -11,22 +11,30 @@ import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
 import { Colors, Fonts, Spacing, Radius, Shadows } from '../../../../shared/theme';
 import { formatPrice, getCategoryEmoji } from '../../../../shared/utils';
+import { useShop } from '../../context/ShopContext';
 
 export default function MenuScreen({ navigation }) {
+  const { shopId } = useShop();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(null);
-  const user = auth().currentUser;
 
   useEffect(() => {
+    if (!shopId) return;
     const unsub = firestore()
       .collection('menuItems')
-      .where('shopId', '==', user?.uid)
-      .orderBy('category')
-      .onSnapshot((snap) => {
-        setItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        setLoading(false);
-      });
+      .where('shopId', '==', shopId)
+      .onSnapshot(
+        (snap) => {
+          if (!snap) { setLoading(false); return; }
+          const sorted = snap.docs
+            .map((d) => ({ id: d.id, ...d.data() }))
+            .sort((a, b) => (a.category || '').localeCompare(b.category || ''));
+          setItems(sorted);
+          setLoading(false);
+        },
+        () => { setLoading(false); }
+      );
     return unsub;
   }, []);
 
@@ -41,12 +49,12 @@ export default function MenuScreen({ navigation }) {
 
   const handleDelete = (item) => {
     Alert.alert(
-      'తొలగించాలా?',
-      `"${item.name}" మెనూ నుండి తొలగించాలా?`,
+      'Delete Item?',
+      `Remove "${item.name}" from menu?`,
       [
-        { text: 'రద్దు', style: 'cancel' },
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: 'తొలగించు',
+          text: 'Delete',
           style: 'destructive',
           onPress: async () => {
             await firestore().collection('menuItems').doc(item.id).delete();
@@ -69,7 +77,19 @@ export default function MenuScreen({ navigation }) {
         <Text style={styles.itemEmoji}>{getCategoryEmoji(item.category)}</Text>
       </View>
       <View style={styles.itemInfo}>
-        <Text style={styles.itemName}>{item.name}</Text>
+        <View style={styles.nameRow}>
+          <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
+          {item.isVeg !== undefined && (
+            <View style={[styles.vegBox, { borderColor: item.isVeg ? Colors.success : Colors.error }]}>
+              <View style={[styles.vegDot, { backgroundColor: item.isVeg ? Colors.success : Colors.error }]} />
+            </View>
+          )}
+        </View>
+        {item.isBestSeller && (
+          <View style={styles.bestSellerBadge}>
+            <Text style={styles.bestSellerText}>⭐ Best Seller</Text>
+          </View>
+        )}
         {item.description ? (
           <Text style={styles.itemDesc} numberOfLines={1}>{item.description}</Text>
         ) : null}
@@ -104,7 +124,7 @@ export default function MenuScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>నా మెనూ</Text>
+        <Text style={styles.headerTitle}>My Menu</Text>
         <TouchableOpacity
           style={styles.addBtn}
           onPress={() => navigation.navigate('AddItem', {})}
@@ -116,17 +136,17 @@ export default function MenuScreen({ navigation }) {
       {/* Stats bar */}
       <View style={styles.statsBar}>
         <Text style={styles.statItem}>
-          <Text style={styles.statNum}>{items.length}</Text> వస్తువులు
+          <Text style={styles.statNum}>{items.length}</Text> items
         </Text>
         <Text style={styles.statItem}>
           <Text style={[styles.statNum, { color: Colors.success }]}>
             {items.filter((i) => i.isAvailable !== false).length}
-          </Text> అందుబాటులో
+          </Text> available
         </Text>
         <Text style={styles.statItem}>
           <Text style={[styles.statNum, { color: Colors.error }]}>
             {items.filter((i) => i.isAvailable === false).length}
-          </Text> అందుబాటులో లేవు
+          </Text> unavailable
         </Text>
       </View>
 
@@ -135,13 +155,13 @@ export default function MenuScreen({ navigation }) {
       ) : items.length === 0 ? (
         <View style={styles.center}>
           <Text style={styles.emptyEmoji}>🍽️</Text>
-          <Text style={styles.emptyTitle}>మెనూ ఖాళీగా ఉంది</Text>
-          <Text style={styles.emptySub}>వస్తువులు జోడించండి</Text>
+          <Text style={styles.emptyTitle}>Menu is Empty</Text>
+          <Text style={styles.emptySub}>Add items to your menu</Text>
           <TouchableOpacity
             style={styles.addFirstBtn}
             onPress={() => navigation.navigate('AddItem', {})}
           >
-            <Text style={styles.addFirstBtnText}>+ మొదటి వస్తువు జోడించు</Text>
+            <Text style={styles.addFirstBtnText}>+ Add First Item</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -176,7 +196,7 @@ function LinearGradientText() {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: Colors.primary, borderRadius: Radius.md }}>
       <Ionicons name="add" size={18} color={Colors.white} />
-      <Text style={{ color: Colors.white, fontWeight: '700', fontSize: 13 }}>జోడించు</Text>
+      <Text style={{ color: Colors.white, fontWeight: '700', fontSize: 13 }}>Add</Text>
     </View>
   );
 }
@@ -214,7 +234,16 @@ const styles = StyleSheet.create({
   },
   itemEmoji: { fontSize: 28 },
   itemInfo: { flex: 1 },
-  itemName: { fontSize: Fonts.sizes.md, fontWeight: '700', color: Colors.dark, marginBottom: 3 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 3 },
+  itemName: { flex: 1, fontSize: Fonts.sizes.md, fontWeight: '700', color: Colors.dark },
+  vegBox: { width: 14, height: 14, borderRadius: 3, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  vegDot: { width: 6, height: 6, borderRadius: 3 },
+  bestSellerBadge: {
+    backgroundColor: '#FFF8E1', borderRadius: 4, paddingHorizontal: 6,
+    paddingVertical: 2, marginBottom: 4, alignSelf: 'flex-start',
+    borderWidth: 1, borderColor: '#FFD54F',
+  },
+  bestSellerText: { fontSize: 9, color: '#E65100', fontWeight: '700' },
   itemDesc: { fontSize: Fonts.sizes.xs, color: Colors.grey, marginBottom: 4 },
   itemPrice: { fontSize: Fonts.sizes.md, fontWeight: '700', color: Colors.primary },
   itemActions: { alignItems: 'flex-end', gap: 8 },

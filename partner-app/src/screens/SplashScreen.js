@@ -22,10 +22,10 @@ export default function SplashScreen() {
         <Text style={styles.logoEmoji}>🏪</Text>
       </Animated.View>
       <Animated.View style={{ opacity, alignItems: 'center' }}>
-        <Text style={styles.title}>గల్లి ఎక్స్‌ప్రెస్</Text>
-        <Text style={styles.subtitle}>పార్టనర్ యాప్</Text>
+        <Text style={styles.title}>GalliExpress</Text>
+        <Text style={styles.subtitle}>Partner App</Text>
         <View style={styles.badge}>
-          <Text style={styles.badgeText}>షాప్ ఓనర్ పోర్టల్</Text>
+          <Text style={styles.badgeText}>Shop Owner Portal</Text>
         </View>
       </Animated.View>
     </LinearGradient>

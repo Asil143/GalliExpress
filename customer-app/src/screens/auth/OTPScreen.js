@@ -6,7 +6,9 @@ import {
 } from 'react-native';
 import { OtpInput } from 'react-native-otp-entry';
 import { LinearGradient } from 'expo-linear-gradient';
+import auth from '@react-native-firebase/auth';
 import { Colors, Fonts, Spacing, Radius, Shadows } from '../../../../shared/theme';
+import { formatPhone } from '../../../../shared/utils';
 
 export default function OTPScreen({ navigation, route }) {
   const { phone, confirmation } = route.params;
@@ -43,7 +45,7 @@ export default function OTPScreen({ navigation, route }) {
       await confirmation.confirm(code);
       // Auth state listener in App.js handles navigation
     } catch (error) {
-      Alert.alert('తప్పు OTP', 'OTP సరైనది కాదు. మళ్ళీ ప్రయత్నించండి.');
+      Alert.alert('Invalid OTP', 'The OTP entered is incorrect. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -52,10 +54,13 @@ export default function OTPScreen({ navigation, route }) {
   const handleResend = async () => {
     if (!canResend) return;
     try {
-      // Re-send OTP via Firebase
-      navigation.replace('Login');
+      const newConfirmation = await auth().signInWithPhoneNumber(formatPhone(phone));
+      navigation.setParams({ confirmation: newConfirmation });
+      setCountdown(30);
+      setCanResend(false);
+      startCountdown();
     } catch {
-      Alert.alert('తప్పు', 'OTP మళ్ళీ పంపడం వైఫల్యమైంది');
+      Alert.alert('Error', 'Failed to resend OTP. Please go back and try again.');
     }
   };
 
@@ -63,7 +68,7 @@ export default function OTPScreen({ navigation, route }) {
     <View style={styles.container}>
       {/* Back */}
       <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-        <Text style={styles.backText}>← వెనక్కి</Text>
+        <Text style={styles.backText}>← Back</Text>
       </TouchableOpacity>
 
       {/* Header */}
@@ -71,9 +76,9 @@ export default function OTPScreen({ navigation, route }) {
         <View style={styles.iconBox}>
           <Text style={styles.iconEmoji}>📱</Text>
         </View>
-        <Text style={styles.title}>OTP ధృవీకరించండి</Text>
+        <Text style={styles.title}>Verify OTP</Text>
         <Text style={styles.subtitle}>
-          +91 {phone} కి పంపిన{'\n'}6 అంకెల OTP నమోదు చేయండి
+          Enter the 6-digit OTP sent to{'\n'}+91 {phone}
         </Text>
       </View>
 
@@ -109,7 +114,7 @@ export default function OTPScreen({ navigation, route }) {
           {loading ? (
             <ActivityIndicator color={Colors.white} />
           ) : (
-            <Text style={styles.btnText}>ధృవీకరించండి ✓</Text>
+            <Text style={styles.btnText}>Verify ✓</Text>
           )}
         </LinearGradient>
       </TouchableOpacity>
@@ -118,11 +123,11 @@ export default function OTPScreen({ navigation, route }) {
       <View style={styles.resendRow}>
         {canResend ? (
           <TouchableOpacity onPress={handleResend}>
-            <Text style={styles.resendLink}>OTP మళ్ళీ పంపండి</Text>
+            <Text style={styles.resendLink}>Resend OTP</Text>
           </TouchableOpacity>
         ) : (
           <Text style={styles.resendTimer}>
-            మళ్ళీ పంపడానికి {countdown} సెకండ్లు వేచి ఉండండి
+            Resend in {countdown} seconds
           </Text>
         )}
       </View>

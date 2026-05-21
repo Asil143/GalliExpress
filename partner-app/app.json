@@ -21,6 +21,8 @@
       "newArchEnabled": false,
       "permissions": [
         "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "RECEIVE_BOOT_COMPLETED",
         "VIBRATE"
       ]
     },
@@ -41,6 +43,13 @@
         "projectId": "64676612-0e90-403f-9803-69f59e8d1f3d"
       }
     },
-    "owner": "asil0918"
+    "owner": "asil0918",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/64676612-0e90-403f-9803-69f59e8d1f3d"
+    },
+    "ios": {}
   }
 }

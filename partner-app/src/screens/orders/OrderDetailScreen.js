@@ -11,10 +11,10 @@ import firestore from '@react-native-firebase/firestore';
 import { Colors, Fonts, Spacing, Radius, Shadows } from '../../../../shared/theme';
 
 const STATUS_FLOW = [
-  { key: 'pending', label: 'పెండింగ్', icon: 'time-outline' },
-  { key: 'confirmed', label: 'కన్ఫర్మ్', icon: 'checkmark-circle-outline' },
-  { key: 'preparing', label: 'తయారు చేస్తున్నాం', icon: 'restaurant-outline' },
-  { key: 'ready', label: 'రెడీ', icon: 'bag-check-outline' },
+  { key: 'pending', label: 'Pending', icon: 'time-outline' },
+  { key: 'confirmed', label: 'Confirmed', icon: 'checkmark-circle-outline' },
+  { key: 'preparing', label: 'Preparing', icon: 'restaurant-outline' },
+  { key: 'ready', label: 'Ready', icon: 'bag-check-outline' },
 ];
 
 export default function OrderDetailScreen({ navigation, route }) {
@@ -33,10 +33,10 @@ export default function OrderDetailScreen({ navigation, route }) {
   }, [orderId]);
 
   const updateStatus = async (newStatus) => {
-    Alert.alert('స్టేటస్ అప్‌డేట్', `ఆర్డర్‌ను "${newStatus}" కి మార్చాలా?`, [
-      { text: 'రద్దు', style: 'cancel' },
+    Alert.alert('Update Status', `Change order to "${newStatus}"?`, [
+      { text: 'Cancel', style: 'cancel' },
       {
-        text: 'అవును',
+        text: 'Yes',
         onPress: async () => {
           setUpdating(true);
           try {
@@ -55,10 +55,10 @@ export default function OrderDetailScreen({ navigation, route }) {
   };
 
   const cancelOrder = () => {
-    Alert.alert('ఆర్డర్ రద్దు', 'ఈ ఆర్డర్‌ను రద్దు చేయాలా?', [
-      { text: 'వద్దు', style: 'cancel' },
+    Alert.alert('Cancel Order', 'Are you sure you want to cancel this order?', [
+      { text: 'No', style: 'cancel' },
       {
-        text: 'రద్దు చేయి',
+        text: 'Cancel Order',
         style: 'destructive',
         onPress: async () => {
           await firestore().collection('orders').doc(orderId).update({
@@ -84,7 +84,7 @@ export default function OrderDetailScreen({ navigation, route }) {
   const nextStatus = STATUS_FLOW[currentIndex + 1];
   const canCancel = ['pending', 'confirmed'].includes(order.status);
 
-  const totalAmount = order.items?.reduce((sum, i) => sum + i.price * i.qty, 0) || 0;
+  const totalAmount = order.items?.reduce((sum, i) => sum + i.price * (i.quantity || i.qty || 1), 0) || 0;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -93,14 +93,14 @@ export default function OrderDetailScreen({ navigation, route }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={Colors.dark} />
         </TouchableOpacity>
-        <Text style={styles.title}>ఆర్డర్ #{order.orderNumber || orderId.slice(-6).toUpperCase()}</Text>
+        <Text style={styles.title}>Order #{order.orderNumber || orderId.slice(-6).toUpperCase()}</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Status Timeline */}
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>ఆర్డర్ స్థితి</Text>
+          <Text style={styles.sectionTitle}>Order Status</Text>
           <View style={styles.timeline}>
             {STATUS_FLOW.map((step, i) => {
               const done = i <= currentIndex;
@@ -123,7 +123,7 @@ export default function OrderDetailScreen({ navigation, route }) {
 
         {/* Customer Info */}
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>కస్టమర్ వివరాలు</Text>
+          <Text style={styles.sectionTitle}>Customer Details</Text>
           <View style={styles.row}>
             <Ionicons name="person-outline" size={16} color={Colors.grey} />
             <Text style={styles.infoText}>{order.customerName || '—'}</Text>
@@ -140,17 +140,17 @@ export default function OrderDetailScreen({ navigation, route }) {
 
         {/* Order Items */}
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>ఆర్డర్ వస్తువులు</Text>
+          <Text style={styles.sectionTitle}>Order Items</Text>
           {(order.items || []).map((item, i) => (
             <View key={i} style={styles.itemRow}>
-              <Text style={styles.itemQty}>{item.qty}x</Text>
+              <Text style={styles.itemQty}>{item.quantity || item.qty || 1}x</Text>
               <Text style={styles.itemName}>{item.name}</Text>
-              <Text style={styles.itemPrice}>₹{item.price * item.qty}</Text>
+              <Text style={styles.itemPrice}>₹{item.price * (item.quantity || item.qty || 1)}</Text>
             </View>
           ))}
           <View style={styles.divider} />
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>మొత్తం</Text>
+            <Text style={styles.totalLabel}>Total</Text>
             <Text style={styles.totalAmount}>₹{totalAmount}</Text>
           </View>
         </View>
@@ -160,7 +160,7 @@ export default function OrderDetailScreen({ navigation, route }) {
           <View style={styles.row}>
             <Ionicons name="cash-outline" size={16} color={Colors.grey} />
             <Text style={styles.infoText}>
-              {order.paymentMethod === 'cod' ? 'క్యాష్ ఆన్ డెలివరీ' : 'UPI పేమెంట్'}
+              {order.paymentMethod === 'cod' ? 'Cash on Delivery' : 'UPI Payment'}
             </Text>
           </View>
         </View>
@@ -177,14 +177,14 @@ export default function OrderDetailScreen({ navigation, route }) {
                 <ActivityIndicator color={Colors.white} />
               ) : (
                 <Text style={styles.primaryBtnText}>
-                  → {nextStatus.label} కి మార్చు
+                  → Move to {nextStatus.label}
                 </Text>
               )}
             </TouchableOpacity>
           )}
           {canCancel && (
             <TouchableOpacity style={styles.cancelBtn} onPress={cancelOrder}>
-              <Text style={styles.cancelBtnText}>ఆర్డర్ రద్దు చేయి</Text>
+              <Text style={styles.cancelBtnText}>Cancel Order</Text>
             </TouchableOpacity>
           )}
         </View>

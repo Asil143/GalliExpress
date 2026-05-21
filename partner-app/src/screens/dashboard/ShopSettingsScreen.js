@@ -3,15 +3,17 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Switch, Alert, ActivityIndicator,
+  TextInput, Alert, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
 import { Colors, Fonts, Spacing, Radius, Shadows } from '../../../../shared/theme';
+import { useShop } from '../../context/ShopContext';
 
 export default function ShopSettingsScreen({ navigation }) {
+  const { shopId: contextShopId, setShop: setContextShop } = useShop();
   const [shop, setShop] = useState(null);
   const [shopId, setShopId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -22,17 +24,16 @@ export default function ShopSettingsScreen({ navigation }) {
   const [description, setDescription] = useState('');
   const [minOrder, setMinOrder] = useState('');
   const [deliveryTime, setDeliveryTime] = useState('');
-  const [isOpen, setIsOpen] = useState(true);
-
   const uid = auth().currentUser?.uid;
 
   useEffect(() => {
-    if (!uid) return;
-    firestore()
-      .collection('shops')
-      .where('partnerId', '==', uid)
-      .limit(1)
-      .get()
+    const sid = contextShopId;
+    if (!sid && !uid) return;
+    const query = sid
+      ? firestore().collection('shops').doc(sid).get().then(d => ({ docs: d.exists ? [d] : [], empty: !d.exists }))
+      : firestore().collection('shops').where('partnerId', '==', uid).limit(1).get();
+
+    query
       .then((snap) => {
         if (!snap.empty) {
           const doc = snap.docs[0];
@@ -43,7 +44,6 @@ export default function ShopSettingsScreen({ navigation }) {
           setDescription(data.description || '');
           setMinOrder(String(data.minOrder || ''));
           setDeliveryTime(data.deliveryTime || '');
-          setIsOpen(data.isOpen ?? true);
         }
         setLoading(false);
       });
@@ -52,7 +52,7 @@ export default function ShopSettingsScreen({ navigation }) {
   const saveSettings = async () => {
     if (!shopId) return;
     if (!name.trim()) {
-      Alert.alert('తప్పు', 'షాప్ పేరు నమోదు చేయండి');
+      Alert.alert('Error', 'Please enter a shop name');
       return;
     }
     setSaving(true);
@@ -62,22 +62,15 @@ export default function ShopSettingsScreen({ navigation }) {
         description: description.trim(),
         minOrder: parseInt(minOrder) || 0,
         deliveryTime: deliveryTime.trim(),
-        isOpen,
         updatedAt: firestore.FieldValue.serverTimestamp(),
       });
-      Alert.alert('విజయం', 'షాప్ సెట్టింగ్స్ అప్‌డేట్ అయ్యాయి');
+      setContextShop(prev => ({ ...prev, name: name.trim(), description: description.trim(), minOrder: parseInt(minOrder) || 0, deliveryTime: deliveryTime.trim() }));
+      Alert.alert('Success', 'Shop settings updated successfully');
       navigation.goBack();
     } catch (e) {
       Alert.alert('Error', e.message);
     } finally {
       setSaving(false);
-    }
-  };
-
-  const toggleShopOpen = async (value) => {
-    setIsOpen(value);
-    if (shopId) {
-      await firestore().collection('shops').doc(shopId).update({ isOpen: value });
     }
   };
 
@@ -96,53 +89,35 @@ export default function ShopSettingsScreen({ navigation }) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={Colors.dark} />
         </TouchableOpacity>
-        <Text style={styles.title}>షాప్ సెట్టింగ్స్</Text>
+        <Text style={styles.title}>Shop Settings</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Open/Close Toggle */}
-        <View style={styles.card}>
-          <View style={styles.toggleRow}>
-            <View style={styles.toggleLeft}>
-              <Text style={styles.toggleTitle}>షాప్ తెరిచి ఉంది</Text>
-              <Text style={styles.toggleSub}>
-                {isOpen ? 'కస్టమర్లు ఆర్డర్ చేయగలరు' : 'ఆర్డర్లు స్వీకరించడం లేదు'}
-              </Text>
-            </View>
-            <Switch
-              value={isOpen}
-              onValueChange={toggleShopOpen}
-              trackColor={{ false: Colors.lightGrey, true: Colors.successLight }}
-              thumbColor={isOpen ? Colors.success : Colors.grey}
-            />
-          </View>
-        </View>
-
         {/* Shop Details Form */}
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>షాప్ వివరాలు</Text>
+          <Text style={styles.sectionTitle}>Shop Details</Text>
 
-          <Text style={styles.label}>షాప్ పేరు</Text>
+          <Text style={styles.label}>Shop Name</Text>
           <TextInput
             style={styles.input}
             value={name}
             onChangeText={setName}
-            placeholder="మీ షాప్ పేరు"
+            placeholder="Your shop name"
             placeholderTextColor={Colors.lightGrey}
           />
 
-          <Text style={styles.label}>వివరణ</Text>
+          <Text style={styles.label}>Description</Text>
           <TextInput
             style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
             value={description}
             onChangeText={setDescription}
-            placeholder="మీ షాప్ గురించి చిన్న వివరణ..."
+            placeholder="Brief description of your shop..."
             placeholderTextColor={Colors.lightGrey}
             multiline
           />
 
-          <Text style={styles.label}>కనీస ఆర్డర్ (₹)</Text>
+          <Text style={styles.label}>Minimum Order (₹)</Text>
           <TextInput
             style={styles.input}
             value={minOrder}
@@ -152,12 +127,12 @@ export default function ShopSettingsScreen({ navigation }) {
             keyboardType="numeric"
           />
 
-          <Text style={styles.label}>డెలివరీ సమయం</Text>
+          <Text style={styles.label}>Delivery Time</Text>
           <TextInput
             style={styles.input}
             value={deliveryTime}
             onChangeText={setDeliveryTime}
-            placeholder="25-30 నిమిషాలు"
+            placeholder="25-30 minutes"
             placeholderTextColor={Colors.lightGrey}
           />
         </View>
@@ -168,8 +143,21 @@ export default function ShopSettingsScreen({ navigation }) {
             {saving ? (
               <ActivityIndicator color={Colors.white} />
             ) : (
-              <Text style={styles.saveBtnText}>సెట్టింగ్స్ సేవ్ చేయి</Text>
+              <Text style={styles.saveBtnText}>Save Settings</Text>
             )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.logoutBtn}
+            onPress={() =>
+              Alert.alert('Logout', 'Are you sure you want to logout?', [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Logout', style: 'destructive', onPress: () => auth().signOut() },
+              ])
+            }
+          >
+            <Ionicons name="log-out-outline" size={20} color={Colors.error} />
+            <Text style={styles.logoutText}>Logout</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -200,14 +188,6 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     ...Shadows.sm,
   },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  toggleLeft: { flex: 1 },
-  toggleTitle: { fontSize: Fonts.sizes.md, fontWeight: Fonts.weights.semibold, color: Colors.dark },
-  toggleSub: { fontSize: Fonts.sizes.sm, color: Colors.grey, marginTop: 2 },
   sectionTitle: {
     fontSize: Fonts.sizes.md,
     fontWeight: Fonts.weights.bold,
@@ -240,4 +220,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   saveBtnText: { color: Colors.white, fontWeight: Fonts.weights.bold, fontSize: Fonts.sizes.md },
+  logoutBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    marginTop: Spacing.md, borderWidth: 1.5, borderColor: Colors.error,
+    borderRadius: Radius.md, height: 52,
+  },
+  logoutText: { color: Colors.error, fontWeight: Fonts.weights.bold, fontSize: Fonts.sizes.md },
 });

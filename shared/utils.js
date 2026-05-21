@@ -34,9 +34,9 @@ export const getTimeAgo = (timestamp) => {
   if (!timestamp) return '';
   const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
   const seconds = Math.floor((new Date() - date) / 1000);
-  if (seconds < 60) return 'ఇప్పుడే';
-  if (seconds < 3600) return `${Math.floor(seconds / 60)} నిమిషాల క్రితం`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)} గంటల క్రితం`;
+  if (seconds < 60) return 'Just now';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} hr ago`;
   return formatDate(timestamp);
 };
 
@@ -72,13 +72,13 @@ export const getStatusColor = (status) => {
 
 export const getStatusLabel = (status) => {
   const map = {
-    pending: 'వేచి ఉంది',
-    confirmed: 'నిర్ధారించబడింది',
-    preparing: 'తయారు చేస్తున్నారు',
-    ready: 'రెడీ అయింది',
-    on_the_way: 'దారిలో ఉంది',
-    delivered: 'డెలివర్ అయింది',
-    cancelled: 'రద్దు అయింది',
+    pending: 'Pending',
+    confirmed: 'Confirmed',
+    preparing: 'Preparing',
+    ready: 'Ready',
+    on_the_way: 'On the Way',
+    delivered: 'Delivered',
+    cancelled: 'Cancelled',
   };
   return map[status] || status;
 };
@@ -90,8 +90,8 @@ export const isValidPrice = (price) => !isNaN(price) && Number(price) > 0;
 
 // ─── Distance ─────────────────────────────────────────────────────────────────
 export const getDistanceLabel = (distanceInMeters) => {
-  if (distanceInMeters < 1000) return `${Math.round(distanceInMeters)} మీ`;
-  return `${(distanceInMeters / 1000).toFixed(1)} కి.మీ`;
+  if (distanceInMeters < 1000) return `${Math.round(distanceInMeters)} m`;
+  return `${(distanceInMeters / 1000).toFixed(1)} km`;
 };
 
 // ─── Category Icons (emoji fallback) ─────────────────────────────────────────

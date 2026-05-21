@@ -12,23 +12,26 @@ import firestore from '@react-native-firebase/firestore';
 import auth from '@react-native-firebase/auth';
 import { Colors, Fonts, Spacing, Radius, Shadows } from '../../../../shared/theme';
 import { isValidPrice } from '../../../../shared/utils';
+import { useShop } from '../../context/ShopContext';
 
 const CATEGORIES = [
-  'ఆహారం', 'కిరాణా', 'కూరగాయలు', 'పండ్లు',
-  'పాల పదార్థాలు', 'మాంసం', 'బేకరీ', 'మిఠాయిలు',
-  'పానీయాలు', 'స్టేషనరీ', 'వ్యక్తిగత', 'పూజా సామాను',
+  'Food', 'Grocery', 'Vegetables', 'Fruits',
+  'Dairy', 'Meat', 'Bakery', 'Sweets',
+  'Beverages', 'Stationery', 'Personal Care', 'Pooja Items',
 ];
 
 export default function AddItemScreen({ navigation, route }) {
   const { item: existingItem } = route.params || {};
   const isEditing = !!existingItem;
-  const user = auth().currentUser;
+  const { shopId } = useShop();
 
   const [name, setName] = useState(existingItem?.name || '');
   const [price, setPrice] = useState(existingItem?.price?.toString() || '');
   const [description, setDescription] = useState(existingItem?.description || '');
   const [category, setCategory] = useState(existingItem?.category || '');
   const [isAvailable, setIsAvailable] = useState(existingItem?.isAvailable !== false);
+  const [isVeg, setIsVeg] = useState(existingItem?.isVeg ?? true);
+  const [isBestSeller, setIsBestSeller] = useState(existingItem?.isBestSeller || false);
   const [loading, setLoading] = useState(false);
 
   const isValid = name.trim().length > 0 && isValidPrice(price) && category.length > 0;
@@ -43,7 +46,9 @@ export default function AddItemScreen({ navigation, route }) {
         description: description.trim(),
         category,
         isAvailable,
-        shopId: user?.uid,
+        isVeg,
+        isBestSeller,
+        shopId: shopId,
         updatedAt: firestore.FieldValue.serverTimestamp(),
       };
 
@@ -57,7 +62,7 @@ export default function AddItemScreen({ navigation, route }) {
       }
       navigation.goBack();
     } catch (e) {
-      Alert.alert('తప్పు జరిగింది', 'సేవ్ చేయడంలో వైఫల్యం');
+      Alert.alert('Error', 'Failed to save item');
     } finally {
       setLoading(false);
     }
@@ -69,7 +74,7 @@ export default function AddItemScreen({ navigation, route }) {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={Colors.dark} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{isEditing ? 'వస్తువు మార్చు' : 'వస్తువు జోడించు'}</Text>
+        <Text style={styles.headerTitle}>{isEditing ? 'Edit Item' : 'Add Item'}</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -78,10 +83,10 @@ export default function AddItemScreen({ navigation, route }) {
 
           {/* Name */}
           <View style={styles.field}>
-            <Text style={styles.label}>వస్తువు పేరు *</Text>
+            <Text style={styles.label}>Item Name *</Text>
             <TextInput
               style={styles.input}
-              placeholder="ఉదా: వెజ్ బిర్యాని"
+              placeholder="e.g. Veg Biryani"
               placeholderTextColor={Colors.lightGrey}
               value={name}
               onChangeText={setName}
@@ -90,7 +95,7 @@ export default function AddItemScreen({ navigation, route }) {
 
           {/* Price */}
           <View style={styles.field}>
-            <Text style={styles.label}>ధర (₹) *</Text>
+            <Text style={styles.label}>Price (₹) *</Text>
             <View style={styles.priceInput}>
               <Text style={styles.rupeeSign}>₹</Text>
               <TextInput
@@ -106,10 +111,10 @@ export default function AddItemScreen({ navigation, route }) {
 
           {/* Description */}
           <View style={styles.field}>
-            <Text style={styles.label}>వివరణ (ఐచ్ఛికం)</Text>
+            <Text style={styles.label}>Description (Optional)</Text>
             <TextInput
               style={[styles.input, styles.textArea]}
-              placeholder="వస్తువు గురించి వివరణ..."
+              placeholder="Description about the item..."
               placeholderTextColor={Colors.lightGrey}
               value={description}
               onChangeText={setDescription}
@@ -120,7 +125,7 @@ export default function AddItemScreen({ navigation, route }) {
 
           {/* Category */}
           <View style={styles.field}>
-            <Text style={styles.label}>కేటగరీ *</Text>
+            <Text style={styles.label}>Category *</Text>
             <View style={styles.categoryGrid}>
               {CATEGORIES.map((cat) => (
                 <TouchableOpacity
@@ -136,19 +141,54 @@ export default function AddItemScreen({ navigation, route }) {
             </View>
           </View>
 
+          {/* Veg / Non-Veg */}
+          <View style={styles.field}>
+            <Text style={styles.label}>Food Type *</Text>
+            <View style={styles.foodTypeRow}>
+              <TouchableOpacity
+                style={[styles.foodTypeBtn, isVeg && styles.vegBtnActive]}
+                onPress={() => setIsVeg(true)}
+              >
+                <Text style={styles.foodTypeBtnText}>🟢 Pure Veg</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.foodTypeBtn, !isVeg && styles.nonVegBtnActive]}
+                onPress={() => setIsVeg(false)}
+              >
+                <Text style={styles.foodTypeBtnText}>🔴 Non-Veg</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Best Seller */}
+          <View style={[styles.field, styles.availabilityRow]}>
+            <View>
+              <Text style={styles.label}>⭐ Mark as Best Seller?</Text>
+              <Text style={styles.availSub}>
+                {isBestSeller ? 'Highlighted prominently in menu' : 'Standard listing'}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.toggle, { backgroundColor: isBestSeller ? Colors.secondary : Colors.lightGrey }]}
+              onPress={() => setIsBestSeller(!isBestSeller)}
+            >
+              <Text style={styles.toggleText}>{isBestSeller ? 'Yes' : 'No'}</Text>
+            </TouchableOpacity>
+          </View>
+
           {/* Availability Toggle */}
           <View style={[styles.field, styles.availabilityRow]}>
             <View>
-              <Text style={styles.label}>అందుబాటులో ఉందా?</Text>
+              <Text style={styles.label}>Available?</Text>
               <Text style={styles.availSub}>
-                {isAvailable ? '✅ కస్టమర్లు ఆర్డర్ చేయవచ్చు' : '❌ ఆర్డర్ చేయలేరు'}
+                {isAvailable ? '✅ Customers can order' : '❌ Not orderable'}
               </Text>
             </View>
             <TouchableOpacity
               style={[styles.toggle, { backgroundColor: isAvailable ? Colors.success : Colors.error }]}
               onPress={() => setIsAvailable(!isAvailable)}
             >
-              <Text style={styles.toggleText}>{isAvailable ? 'అవును' : 'కాదు'}</Text>
+              <Text style={styles.toggleText}>{isAvailable ? 'Yes' : 'No'}</Text>
             </TouchableOpacity>
           </View>
 
@@ -169,7 +209,7 @@ export default function AddItemScreen({ navigation, route }) {
           >
             {loading
               ? <ActivityIndicator color={Colors.white} />
-              : <Text style={styles.saveText}>{isEditing ? '✓ అప్‌డేట్ చేయి' : '+ జోడించు'}</Text>}
+              : <Text style={styles.saveText}>{isEditing ? '✓ Update' : '+ Add'}</Text>}
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -212,6 +252,15 @@ const styles = StyleSheet.create({
   catChipSelected: { borderColor: Colors.primary, backgroundColor: Colors.primary + '15' },
   catText: { fontSize: Fonts.sizes.sm, color: Colors.darkGrey },
   catTextSelected: { color: Colors.primary, fontWeight: '700' },
+  foodTypeRow: { flexDirection: 'row', gap: Spacing.sm },
+  foodTypeBtn: {
+    flex: 1, paddingVertical: 13, borderRadius: Radius.md,
+    alignItems: 'center', borderWidth: 1.5, borderColor: Colors.border,
+    backgroundColor: Colors.white,
+  },
+  vegBtnActive: { borderColor: Colors.success, backgroundColor: Colors.success + '12' },
+  nonVegBtnActive: { borderColor: Colors.error, backgroundColor: Colors.error + '12' },
+  foodTypeBtnText: { fontSize: Fonts.sizes.md, fontWeight: '700' },
   availabilityRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   availSub: { fontSize: Fonts.sizes.xs, color: Colors.grey, marginTop: 2 },
   toggle: {

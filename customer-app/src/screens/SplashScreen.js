@@ -66,19 +66,17 @@ export default function SplashScreen() {
 
       {/* App Name */}
       <Animated.View style={{ opacity: textOpacity, alignItems: 'center' }}>
-        <Text style={styles.appNameTelugu}>గల్లి ఎక్స్‌ప్రెస్</Text>
-        <Text style={styles.appNameEn}>GalliExpress</Text>
+        <Text style={styles.appName}>GalliExpress</Text>
       </Animated.View>
 
       {/* Tagline */}
       <Animated.View style={[styles.taglineContainer, { opacity: taglineOpacity }]}>
-        <Text style={styles.tagline}>మీ గల్లికి డెలివరీ</Text>
-        <Text style={styles.taglineEn}>Delivery to your street</Text>
+        <Text style={styles.tagline}>Delivery to your street</Text>
       </Animated.View>
 
       {/* Location badge */}
       <View style={styles.locationBadge}>
-        <Text style={styles.locationText}>📍 అడ్డంకి, ప్రకాశం జిల్లా</Text>
+        <Text style={styles.locationText}>📍 Addanki, Prakasam District</Text>
       </View>
     </LinearGradient>
   );
@@ -123,19 +121,12 @@ const styles = StyleSheet.create({
   logoEmoji: {
     fontSize: 56,
   },
-  appNameTelugu: {
-    fontSize: 28,
+  appName: {
+    fontSize: 32,
     fontWeight: Fonts.weights.heavy,
     color: Colors.white,
     letterSpacing: 1,
     marginBottom: 4,
-  },
-  appNameEn: {
-    fontSize: 16,
-    fontWeight: Fonts.weights.medium,
-    color: 'rgba(255,255,255,0.8)',
-    letterSpacing: 3,
-    textTransform: 'uppercase',
   },
   taglineContainer: {
     marginTop: 24,
@@ -149,11 +140,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: Colors.white,
     fontWeight: Fonts.weights.medium,
-  },
-  taglineEn: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.7)',
-    marginTop: 2,
   },
   locationBadge: {
     position: 'absolute',

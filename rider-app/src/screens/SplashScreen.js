@@ -23,14 +23,14 @@ export default function SplashScreen() {
         <Text style={styles.logoEmoji}>🛵</Text>
       </Animated.View>
       <Animated.View style={{ opacity, alignItems: 'center' }}>
-        <Text style={styles.title}>గల్లి ఎక్స్‌ప్రెస్</Text>
-        <Text style={styles.subtitle}>రైడర్ యాప్</Text>
+        <Text style={styles.title}>GalliExpress</Text>
+        <Text style={styles.subtitle}>Rider App</Text>
         <View style={styles.badge}>
-          <Text style={styles.badgeText}>డెలివరీ పార్టనర్ పోర్టల్</Text>
+          <Text style={styles.badgeText}>Delivery Partner Portal</Text>
         </View>
       </Animated.View>
       <View style={styles.footer}>
-        <Text style={styles.footerText}>🏍️ అడ్డంకి & చుట్టుపక్కల ప్రాంతాలు</Text>
+        <Text style={styles.footerText}>🏍️ Addanki & Surrounding Areas</Text>
       </View>
     </LinearGradient>
   );

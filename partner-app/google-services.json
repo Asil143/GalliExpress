@@ -43,6 +43,25 @@
           "other_platform_oauth_client": []
         }
       }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:144220669906:android:37f6ac37d8769b94726a0b",
+        "android_client_info": {
+          "package_name": "com.galliexpress.rider"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDnDaIxKTjKjtlrWVL5-0Um8zRC57pUKD8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
     }
   ],
   "configuration_version": "1"

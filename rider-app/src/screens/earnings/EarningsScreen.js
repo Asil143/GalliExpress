@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator,
+  Modal, TextInput, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -13,14 +14,62 @@ import { Colors, Fonts, Spacing, Radius, Shadows } from '../../../../shared/them
 import { formatPrice, formatDate } from '../../../../shared/utils';
 import { OrderStatus } from '../../../../shared/theme';
 
-const PERIODS = ['ఈరోజు', 'ఈ వారం', 'ఈ నెల'];
+const PERIODS = ['Today', 'This Week', 'This Month'];
 const DELIVERY_FEE = 30;
 
 export default function EarningsScreen() {
   const [period, setPeriod] = useState(0);
   const [deliveries, setDeliveries] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showBankModal, setShowBankModal] = useState(false);
+  const [bankDetails, setBankDetails] = useState({ upiId: '', accountNumber: '', ifsc: '', holderName: '' });
+  const [bankSaving, setBankSaving] = useState(false);
+  const [riderRating, setRiderRating] = useState(null);
+  const [totalTrips, setTotalTrips] = useState(null);
   const user = auth().currentUser;
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    firestore().collection('riders').doc(user.uid).get().then(snap => {
+      if (snap.exists && snap.data().bankDetails) setBankDetails(snap.data().bankDetails);
+    });
+    // Compute rider rating from the ratings collection (deliveryRating field)
+    firestore().collection('ratings').where('riderId', '==', user.uid).get().then(snap => {
+      if (snap.size > 0) {
+        const avg = snap.docs.reduce((sum, d) => sum + (d.data().deliveryRating || 0), 0) / snap.size;
+        setRiderRating(avg.toFixed(1));
+      }
+    });
+    firestore().collection('orders')
+      .where('riderId', '==', user.uid)
+      .where('status', '==', OrderStatus.DELIVERED)
+      .get()
+      .then(snap => setTotalTrips(snap.size));
+  }, []);
+
+  const saveBankDetails = async () => {
+    if (!bankDetails.holderName.trim()) {
+      Alert.alert('Required', 'Please enter account holder name');
+      return;
+    }
+    if (!bankDetails.upiId.trim() && !bankDetails.accountNumber.trim()) {
+      Alert.alert('Required', 'Please enter UPI ID or bank account number');
+      return;
+    }
+    setBankSaving(true);
+    try {
+      await firestore().collection('riders').doc(user.uid).update({
+        bankDetails,
+        updatedAt: firestore.FieldValue.serverTimestamp(),
+      });
+      setShowBankModal(false);
+      Alert.alert('✅ Saved', 'Bank details updated successfully. Payouts every Monday.');
+    } catch {
+      Alert.alert('Error', 'Failed to save bank details. Try again.');
+    } finally {
+      setBankSaving(false);
+    }
+  };
 
   useEffect(() => { loadEarnings(); }, [period]);
 
@@ -33,15 +82,23 @@ export default function EarningsScreen() {
 
   const loadEarnings = async () => {
     setLoading(true);
-    const startDate = getStartDate();
-    const snap = await firestore()
-      .collection('orders')
-      .where('riderId', '==', user?.uid)
-      .where('status', '==', OrderStatus.DELIVERED)
-      .where('createdAt', '>=', firestore.Timestamp.fromDate(startDate))
-      .orderBy('createdAt', 'desc')
-      .get();
-    setDeliveries(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    try {
+      const startDate = getStartDate();
+      const snap = await firestore()
+        .collection('orders')
+        .where('riderId', '==', user?.uid)
+        .where('status', '==', OrderStatus.DELIVERED)
+        .get();
+      const filtered = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((o) => {
+          const date = o.createdAt?.toDate?.() || new Date(0);
+          return date >= startDate;
+        })
+        .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+      setDeliveries(filtered);
+    } catch (e) {
+    }
     setLoading(false);
   };
 
@@ -50,7 +107,7 @@ export default function EarningsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>నా సంపాదన</Text>
+        <Text style={styles.headerTitle}>My Earnings</Text>
       </View>
 
       <ScrollView>
@@ -69,47 +126,59 @@ export default function EarningsScreen() {
 
         {/* Earnings Card */}
         <LinearGradient colors={[Colors.primary, Colors.primaryDark]} style={styles.earningsCard}>
-          <Text style={styles.earningsLabel}>మొత్తం సంపాదన</Text>
+          <Text style={styles.earningsLabel}>Total Earnings</Text>
           <Text style={styles.earningsAmount}>{formatPrice(totalEarnings)}</Text>
           <View style={styles.earningsRow}>
             <View style={styles.earningsItem}>
               <Text style={styles.earningsItemVal}>{deliveries.length}</Text>
-              <Text style={styles.earningsItemLabel}>డెలివరీలు</Text>
+              <Text style={styles.earningsItemLabel}>Deliveries</Text>
             </View>
             <View style={styles.earningsDivider} />
             <View style={styles.earningsItem}>
               <Text style={styles.earningsItemVal}>{formatPrice(DELIVERY_FEE)}</Text>
-              <Text style={styles.earningsItemLabel}>ప్రతి డెలివరీకి</Text>
+              <Text style={styles.earningsItemLabel}>Per Delivery</Text>
             </View>
             <View style={styles.earningsDivider} />
             <View style={styles.earningsItem}>
               <Text style={styles.earningsItemVal}>
                 {deliveries.length > 0 ? formatPrice(totalEarnings / deliveries.length) : '₹0'}
               </Text>
-              <Text style={styles.earningsItemLabel}>సగటు</Text>
+              <Text style={styles.earningsItemLabel}>Average</Text>
             </View>
           </View>
         </LinearGradient>
 
-        {/* Performance Tips */}
+        {/* Performance */}
         <View style={styles.tipsCard}>
-          <Text style={styles.tipsTitle}>🏆 మీ పర్ఫార్మెన్స్</Text>
+          <Text style={styles.tipsTitle}>🏆 Your Performance</Text>
           <View style={styles.performanceRow}>
-            <PerformanceItem label="రేటింగ్" value="⭐ 5.0" good />
-            <PerformanceItem label="అంగీకార రేటు" value="95%" good />
-            <PerformanceItem label="సమయపాలన" value="98%" good />
+            <PerformanceItem
+              label="Rating"
+              value={riderRating ? `⭐ ${riderRating}` : '—'}
+              good={riderRating >= 4}
+            />
+            <PerformanceItem
+              label="Total Trips"
+              value={totalTrips !== null ? `${totalTrips}` : '—'}
+              good={totalTrips > 0}
+            />
+            <PerformanceItem
+              label="This Period"
+              value={`${deliveries.length}`}
+              good={deliveries.length > 0}
+            />
           </View>
         </View>
 
         {/* Delivery List */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>డెలివరీ చరిత్ర</Text>
+          <Text style={styles.sectionTitle}>Delivery History</Text>
           {loading ? (
             <ActivityIndicator color={Colors.primary} style={{ padding: 32 }} />
           ) : deliveries.length === 0 ? (
             <View style={styles.empty}>
               <Text style={styles.emptyEmoji}>🛵</Text>
-              <Text style={styles.emptyText}>ఈ కాలానికి డెలివరీలు లేవు</Text>
+              <Text style={styles.emptyText}>No deliveries for this period</Text>
             </View>
           ) : (
             deliveries.map((d) => (
@@ -121,7 +190,7 @@ export default function EarningsScreen() {
                 </View>
                 <View style={styles.deliveryRight}>
                   <Text style={styles.deliveryEarning}>{formatPrice(DELIVERY_FEE)}</Text>
-                  <Text style={styles.deliveryStatus}>✅ డెలివర్ అయింది</Text>
+                  <Text style={styles.deliveryStatus}>✅ Delivered</Text>
                 </View>
               </View>
             ))
@@ -130,15 +199,110 @@ export default function EarningsScreen() {
 
         {/* Bank Details */}
         <View style={styles.bankCard}>
-          <Text style={styles.bankTitle}>💳 చెల్లింపు సమాచారం</Text>
-          <Text style={styles.bankText}>
-            మీ సంపాదన ప్రతి సోమవారం మీ UPI / బ్యాంక్ ఖాతాకు జమ అవుతుంది.
-          </Text>
-          <TouchableOpacity style={styles.bankBtn}>
-            <Text style={styles.bankBtnText}>UPI / బ్యాంక్ వివరాలు జోడించు</Text>
-          </TouchableOpacity>
+          <Text style={styles.bankTitle}>💳 Payment Info</Text>
+          {bankDetails.holderName ? (
+            <>
+              <View style={styles.bankRow}>
+                <Text style={styles.bankLabel}>Name</Text>
+                <Text style={styles.bankValue}>{bankDetails.holderName}</Text>
+              </View>
+              {bankDetails.upiId ? (
+                <View style={styles.bankRow}>
+                  <Text style={styles.bankLabel}>UPI ID</Text>
+                  <Text style={styles.bankValue}>{bankDetails.upiId}</Text>
+                </View>
+              ) : null}
+              {bankDetails.accountNumber ? (
+                <View style={styles.bankRow}>
+                  <Text style={styles.bankLabel}>Account</Text>
+                  <Text style={styles.bankValue}>****{bankDetails.accountNumber.slice(-4)}</Text>
+                </View>
+              ) : null}
+              {bankDetails.ifsc ? (
+                <View style={styles.bankRow}>
+                  <Text style={styles.bankLabel}>IFSC</Text>
+                  <Text style={styles.bankValue}>{bankDetails.ifsc}</Text>
+                </View>
+              ) : null}
+              <Text style={[styles.bankText, { marginTop: 10 }]}>Payouts every Monday</Text>
+              <TouchableOpacity style={[styles.bankBtn, { backgroundColor: Colors.dark }]} onPress={() => setShowBankModal(true)}>
+                <Text style={styles.bankBtnText}>Edit Details</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <Text style={styles.bankText}>
+                Your earnings are credited to your UPI / bank account every Monday. Add your details to receive payouts.
+              </Text>
+              <TouchableOpacity style={styles.bankBtn} onPress={() => setShowBankModal(true)}>
+                <Text style={styles.bankBtnText}>Add UPI / Bank Details</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </ScrollView>
+
+      {/* Bank Details Modal */}
+      <Modal visible={showBankModal} transparent animationType="slide">
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowBankModal(false)}>
+          <TouchableOpacity style={styles.modalCard} activeOpacity={1}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>💳 Bank / UPI Details</Text>
+            <Text style={styles.modalSub}>Your details are encrypted and secure</Text>
+
+            <Text style={styles.fieldLabel}>Account Holder Name *</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Full name as on bank account"
+              placeholderTextColor={Colors.lightGrey}
+              value={bankDetails.holderName}
+              onChangeText={t => setBankDetails(prev => ({ ...prev, holderName: t }))}
+            />
+
+            <Text style={styles.fieldLabel}>UPI ID (Recommended)</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="e.g. yourname@paytm"
+              placeholderTextColor={Colors.lightGrey}
+              value={bankDetails.upiId}
+              onChangeText={t => setBankDetails(prev => ({ ...prev, upiId: t }))}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+
+            <Text style={styles.fieldLabel}>Bank Account Number</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="e.g. 1234567890123456"
+              placeholderTextColor={Colors.lightGrey}
+              value={bankDetails.accountNumber}
+              onChangeText={t => setBankDetails(prev => ({ ...prev, accountNumber: t }))}
+              keyboardType="numeric"
+            />
+
+            <Text style={styles.fieldLabel}>IFSC Code</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="e.g. SBIN0001234"
+              placeholderTextColor={Colors.lightGrey}
+              value={bankDetails.ifsc}
+              onChangeText={t => setBankDetails(prev => ({ ...prev, ifsc: t.toUpperCase() }))}
+              autoCapitalize="characters"
+            />
+
+            <TouchableOpacity
+              style={[styles.modalSaveBtn, bankSaving && { opacity: 0.6 }]}
+              onPress={saveBankDetails}
+              disabled={bankSaving}
+            >
+              {bankSaving
+                ? <ActivityIndicator color={Colors.white} />
+                : <Text style={styles.modalSaveBtnText}>Save Details</Text>
+              }
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -210,11 +374,38 @@ const styles = StyleSheet.create({
     marginBottom: 32, borderRadius: Radius.xl, padding: Spacing.lg,
     borderWidth: 1, borderColor: Colors.border, ...Shadows.sm,
   },
-  bankTitle: { fontSize: Fonts.sizes.md, fontWeight: '700', color: Colors.dark, marginBottom: 8 },
+  bankTitle: { fontSize: Fonts.sizes.md, fontWeight: '700', color: Colors.dark, marginBottom: 10 },
   bankText: { fontSize: Fonts.sizes.sm, color: Colors.grey, lineHeight: 20, marginBottom: 14 },
+  bankRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  bankLabel: { fontSize: Fonts.sizes.sm, color: Colors.grey },
+  bankValue: { fontSize: Fonts.sizes.sm, fontWeight: '600', color: Colors.dark },
   bankBtn: {
     backgroundColor: Colors.primary, paddingVertical: 10,
-    borderRadius: Radius.md, alignItems: 'center',
+    borderRadius: Radius.md, alignItems: 'center', marginTop: 12,
   },
   bankBtnText: { color: Colors.white, fontWeight: '700', fontSize: Fonts.sizes.sm },
+  // Modal
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalCard: {
+    backgroundColor: Colors.white, borderTopLeftRadius: 28,
+    borderTopRightRadius: 28, padding: Spacing.xl, paddingBottom: 40, gap: Spacing.sm,
+  },
+  modalHandle: {
+    width: 40, height: 4, borderRadius: 2,
+    backgroundColor: Colors.border, alignSelf: 'center', marginBottom: Spacing.sm,
+  },
+  modalTitle: { fontSize: Fonts.sizes.xl, fontWeight: '800', color: Colors.dark },
+  modalSub: { fontSize: Fonts.sizes.sm, color: Colors.grey },
+  fieldLabel: { fontSize: Fonts.sizes.sm, fontWeight: '700', color: Colors.dark, marginTop: Spacing.sm },
+  modalInput: {
+    backgroundColor: Colors.background, borderRadius: Radius.md,
+    borderWidth: 1.5, borderColor: Colors.border,
+    paddingHorizontal: Spacing.md, paddingVertical: 12,
+    fontSize: Fonts.sizes.md, color: Colors.dark,
+  },
+  modalSaveBtn: {
+    backgroundColor: Colors.primary, borderRadius: Radius.md,
+    paddingVertical: 14, alignItems: 'center', marginTop: Spacing.sm,
+  },
+  modalSaveBtnText: { color: Colors.white, fontWeight: '800', fontSize: Fonts.sizes.md },
 });

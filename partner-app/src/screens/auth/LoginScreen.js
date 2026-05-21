@@ -16,7 +16,7 @@ export default function LoginScreen({ navigation }) {
 
   const handleSendOTP = async () => {
     if (!isValidPhone(phone)) {
-      Alert.alert('తప్పు నంబర్', 'సరైన 10 అంకెల ఫోన్ నంబర్ నమోదు చేయండి');
+      Alert.alert('Invalid Number', 'Please enter a valid 10-digit phone number');
       return;
     }
     setLoading(true);
@@ -24,7 +24,7 @@ export default function LoginScreen({ navigation }) {
       const confirmation = await auth().signInWithPhoneNumber(formatPhone(phone));
       navigation.navigate('OTP', { phone, confirmation });
     } catch {
-      Alert.alert('తప్పు జరిగింది', 'OTP పంపడంలో వైఫల్యం');
+      Alert.alert('Error', 'Failed to send OTP');
     } finally {
       setLoading(false);
     }
@@ -36,15 +36,15 @@ export default function LoginScreen({ navigation }) {
         {/* Dark Header */}
         <LinearGradient colors={['#1C1C2E', '#3D3D5C']} style={styles.header}>
           <Text style={styles.headerEmoji}>🏪</Text>
-          <Text style={styles.headerTitle}>పార్టనర్ పోర్టల్</Text>
-          <Text style={styles.headerSub}>గల్లి ఎక్స్‌ప్రెస్ పార్టనర్ అవ్వండి</Text>
+          <Text style={styles.headerTitle}>Partner Portal</Text>
+          <Text style={styles.headerSub}>Become a GalliExpress partner</Text>
         </LinearGradient>
 
         {/* Card */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>పార్టనర్ లాగిన్</Text>
+          <Text style={styles.cardTitle}>Partner Login</Text>
           <Text style={styles.cardSubtitle}>
-            మీ రిజిస్టర్డ్ ఫోన్ నంబర్ నమోదు చేయండి
+            Enter your registered phone number
           </Text>
 
           <View style={styles.inputRow}>
@@ -55,7 +55,7 @@ export default function LoginScreen({ navigation }) {
             <View style={styles.divider} />
             <TextInput
               style={styles.input}
-              placeholder="ఫోన్ నంబర్"
+              placeholder="Phone Number"
               placeholderTextColor={Colors.lightGrey}
               keyboardType="phone-pad"
               maxLength={10}
@@ -77,21 +77,21 @@ export default function LoginScreen({ navigation }) {
             >
               {loading
                 ? <ActivityIndicator color={Colors.white} />
-                : <Text style={styles.btnText}>OTP పంపండి →</Text>}
+                : <Text style={styles.btnText}>Send OTP →</Text>}
             </LinearGradient>
           </TouchableOpacity>
 
           {/* Benefits */}
           <View style={styles.benefitsList}>
-            {['📦 మరిన్ని ఆర్డర్లు పొందండి', '💰 రోజువారీ సంపాదన చూడండి', '🛵 మా రైడర్లు డెలివరీ చేస్తారు'].map((b, i) => (
+            {['📦 Get more orders', '💰 View daily earnings', '🛵 Our riders handle delivery'].map((b, i) => (
               <Text key={i} style={styles.benefit}>{b}</Text>
             ))}
           </View>
         </View>
 
         <Text style={styles.footer}>
-          పార్టనర్ అవ్వడానికి సహాయం కావాలా?{'\n'}
-          <Text style={styles.footerLink}>+91 XXXXXXXXXX కి కాల్ చేయండి</Text>
+          Need help becoming a partner?{'\n'}
+          <Text style={styles.footerLink}>Call us at +91 XXXXXXXXXX</Text>
         </Text>
       </ScrollView>
     </KeyboardAvoidingView>

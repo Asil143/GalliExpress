@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Alert,
+  KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Alert, Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import auth from '@react-native-firebase/auth';
@@ -17,7 +17,7 @@ export default function LoginScreen({ navigation }) {
 
   const handleSendOTP = async () => {
     if (!isValidPhone(phone)) {
-      Alert.alert('తప్పు నంబర్', 'దయచేసి సరైన 10 అంకెల ఫోన్ నంబర్ నమోదు చేయండి');
+      Alert.alert('Invalid Number', 'Please enter a valid 10-digit phone number');
       return;
     }
     setLoading(true);
@@ -26,7 +26,7 @@ export default function LoginScreen({ navigation }) {
       setConfirm(confirmation);
       navigation.navigate('OTP', { phone, confirmation });
     } catch (error) {
-      Alert.alert('తప్పు జరిగింది', 'OTP పంపడంలో వైఫల్యం. మళ్ళీ ప్రయత్నించండి.');
+      Alert.alert('Error', 'Failed to send OTP. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -49,16 +49,16 @@ export default function LoginScreen({ navigation }) {
           <View style={styles.logoMini}>
             <Text style={styles.logoEmoji}>🛵</Text>
           </View>
-          <Text style={styles.headerTitle}>గల్లి ఎక్స్‌ప్రెస్</Text>
-          <Text style={styles.headerSub}>మీ గల్లికి డెలివరీ</Text>
+          <Text style={styles.headerTitle}>GalliExpress</Text>
+          <Text style={styles.headerSub}>Delivery to your street</Text>
         </LinearGradient>
 
         {/* Card */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>లాగిన్ చేయండి</Text>
+          <Text style={styles.cardTitle}>Login</Text>
           <Text style={styles.cardSubtitle}>
-            మీ ఫోన్ నంబర్ నమోదు చేయండి{'\n'}
-            మీకు OTP వస్తుంది
+            Enter your phone number{'\n'}
+            We'll send you an OTP
           </Text>
 
           {/* Phone Input */}
@@ -70,9 +70,9 @@ export default function LoginScreen({ navigation }) {
             <View style={styles.divider} />
             <TextInput
               style={styles.input}
-              placeholder="ఫోన్ నంబర్"
+              placeholder="Phone Number"
               placeholderTextColor={Colors.lightGrey}
-              keyboardType="phone-pad"
+              keyboardType="numeric"
               maxLength={10}
               value={phone}
               onChangeText={setPhone}
@@ -96,23 +96,30 @@ export default function LoginScreen({ navigation }) {
               {loading ? (
                 <ActivityIndicator color={Colors.white} />
               ) : (
-                <Text style={styles.btnText}>OTP పంపండి →</Text>
+                <Text style={styles.btnText}>Send OTP →</Text>
               )}
             </LinearGradient>
           </TouchableOpacity>
 
           {/* Info */}
           <Text style={styles.info}>
-            లాగిన్ చేయడం ద్వారా మీరు మా{' '}
-            <Text style={styles.link}>నిబంధనలు & గోప్యతా విధానం</Text>
-            కి అంగీకరిస్తున్నారు
+            By logging in you agree to our{' '}
+            <Text
+              style={styles.link}
+              onPress={() => Linking.openURL('https://galliexpress.in/terms')}
+            >Terms</Text>
+            {' & '}
+            <Text
+              style={styles.link}
+              onPress={() => Linking.openURL('https://galliexpress.in/privacy')}
+            >Privacy Policy</Text>
           </Text>
         </View>
 
         {/* Location info */}
         <View style={styles.locationRow}>
           <Text style={styles.locationText}>
-            📍 అడ్డంకి, బల్లికురవ మండలం, ప్రకాశం జిల్లా
+            📍 Addanki, Prakasam District
           </Text>
         </View>
       </ScrollView>

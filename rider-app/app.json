@@ -19,7 +19,19 @@
       "package": "com.galliexpress.rider",
       "googleServicesFile": "./google-services.json",
       "newArchEnabled": false,
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyAheicA9XT1Ndqyl34xhPBnOPv0lGWM0P0"
+        }
+      },
       "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "ACCESS_BACKGROUND_LOCATION",
@@ -45,6 +57,12 @@
         {
           "locationAlwaysAndWhenInUsePermission": "GalliExpress Rider needs location to track your deliveries."
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "GalliExpress Rider needs camera access to take pickup and delivery proof photos."
+        }
       ]
     ],
     "extra": {
@@ -52,6 +70,13 @@
         "projectId": "e0f08a5d-961f-4b44-a255-10c7d75ac9ac"
       }
     },
-    "owner": "asil0918"
+    "owner": "asil0918",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/e0f08a5d-961f-4b44-a255-10c7d75ac9ac"
+    },
+    "ios": {}
   }
 }

@@ -13,51 +13,52 @@ import auth from '@react-native-firebase/auth';
 import { Colors, Fonts, Spacing, Radius, Shadows } from '../../../../shared/theme';
 import { formatPrice, getStatusLabel, getStatusColor } from '../../../../shared/utils';
 import { OrderStatus } from '../../../../shared/theme';
+import { useShop } from '../../context/ShopContext';
 
 export default function DashboardScreen({ navigation }) {
+  const { shopId, shop, setShop } = useShop();
   const [isOpen, setIsOpen] = useState(true);
   const [stats, setStats] = useState({ todayOrders: 0, todayEarnings: 0, pending: 0, totalOrders: 0 });
   const [recentOrders, setRecentOrders] = useState([]);
-  const [shopName, setShopName] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const user = auth().currentUser;
 
   useEffect(() => {
+    if (!shopId) return;
     loadDashboard();
-    loadShopStatus();
+    const openValue = shop?.isOpen ?? true;
+    setIsOpen(openValue);
+    // Write isOpen to Firestore if the field was never set (fixes customer app showing "Closed")
+    if (shopId && shop?.isOpen === undefined) {
+      firestore().collection('shops').doc(shopId).update({ isOpen: true }).catch(() => {});
+    }
 
-    // Real-time listener for pending orders badge
     const unsub = firestore()
       .collection('orders')
-      .where('shopId', '==', user?.uid)
+      .where('shopId', '==', shopId)
       .where('status', '==', OrderStatus.PENDING)
-      .onSnapshot((snap) => {
-        setStats((prev) => ({ ...prev, pending: snap.size }));
-      });
+      .onSnapshot(
+        (snap) => { if (snap) setStats((prev) => ({ ...prev, pending: snap.size })); },
+        () => {}
+      );
     return unsub;
-  }, []);
-
-  const loadShopStatus = async () => {
-    const snap = await firestore().collection('partners').doc(user?.uid).get();
-    if (snap.exists) {
-      setIsOpen(snap.data().isOpen ?? true);
-      setShopName(snap.data().shopName || 'మీ షాప్');
-    }
-  };
+  }, [shopId]);
 
   const loadDashboard = async () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const snap = await firestore()
-      .collection('orders')
-      .where('shopId', '==', user?.uid)
-      .orderBy('createdAt', 'desc')
-      .limit(10)
-      .get();
+    try {
+      const snap = await firestore()
+        .collection('orders')
+        .where('shopId', '==', shopId)
+        .limit(50)
+        .get();
 
-    const orders = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    setRecentOrders(orders.slice(0, 5));
+      const orders = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+      setRecentOrders(orders.slice(0, 5));
 
     const todayOrders = orders.filter((o) => {
       const date = o.createdAt?.toDate?.() || new Date(0);
@@ -66,20 +67,37 @@ export default function DashboardScreen({ navigation }) {
 
     const todayEarnings = todayOrders
       .filter((o) => o.status === OrderStatus.DELIVERED)
-      .reduce((sum, o) => sum + (o.total * 0.12), 0); // 12% commission
+      .reduce((sum, o) => sum + (o.total * (shop?.commissionRate || 0.12)), 0);
 
-    setStats((prev) => ({
-      ...prev,
-      todayOrders: todayOrders.length,
-      todayEarnings,
-      totalOrders: snap.size,
-    }));
+      setStats((prev) => ({
+        ...prev,
+        todayOrders: todayOrders.length,
+        todayEarnings,
+        totalOrders: snap.size,
+      }));
+    } catch (e) {
+    }
   };
 
   const toggleShopOpen = async (value) => {
     setIsOpen(value);
-    await firestore().collection('partners').doc(user?.uid).update({ isOpen: value });
-    await firestore().collection('shops').doc(user?.uid).update({ isOpen: value });
+    setShop((prev) => ({ ...prev, isOpen: value }));
+    try {
+      await firestore().collection('shops').doc(shopId).update({ isOpen: value });
+    } catch (e) {
+      // Revert UI if write fails
+      setIsOpen(!value);
+      setShop((prev) => ({ ...prev, isOpen: !value }));
+      Alert.alert('Error', 'Could not update shop status: ' + e.message);
+    }
+  };
+
+  const loadShopStatus = async () => {
+    if (!shopId) return;
+    try {
+      const snap = await firestore().collection('shops').doc(shopId).get();
+      if (snap.exists) setIsOpen(snap.data().isOpen ?? true);
+    } catch {}
   };
 
   const onRefresh = async () => {
@@ -98,8 +116,8 @@ export default function DashboardScreen({ navigation }) {
         <LinearGradient colors={['#1C1C2E', '#3D3D5C']} style={styles.header}>
           <View style={styles.headerTop}>
             <View>
-              <Text style={styles.greeting}>నమస్కారం 👋</Text>
-              <Text style={styles.shopName}>{shopName}</Text>
+              <Text style={styles.greeting}>Hello 👋</Text>
+              <Text style={styles.shopName}>{shop?.name || 'Your Shop'}</Text>
             </View>
             <TouchableOpacity
               style={styles.settingsBtn}
@@ -115,10 +133,10 @@ export default function DashboardScreen({ navigation }) {
               <View style={[styles.statusDot, { backgroundColor: isOpen ? Colors.success : Colors.error }]} />
               <View>
                 <Text style={styles.toggleLabel}>
-                  {isOpen ? '🟢 షాప్ తెరవబడి ఉంది' : '🔴 షాప్ మూసివేయబడింది'}
+                  {isOpen ? '🟢 Shop is Open' : '🔴 Shop is Closed'}
                 </Text>
                 <Text style={styles.toggleSub}>
-                  {isOpen ? 'ఆర్డర్లు స్వీకరిస్తున్నారు' : 'ఆర్డర్లు రావడం ఆపబడింది'}
+                  {isOpen ? 'Accepting orders' : 'Not accepting orders'}
                 </Text>
               </View>
             </View>
@@ -133,16 +151,16 @@ export default function DashboardScreen({ navigation }) {
 
         {/* Stats Grid */}
         <View style={styles.statsGrid}>
-          <StatCard emoji="📦" value={stats.todayOrders} label="ఈరోజు ఆర్డర్లు" color={Colors.primary} />
-          <StatCard emoji="💰" value={formatPrice(stats.todayEarnings)} label="ఈరోజు సంపాదన" color={Colors.success} />
+          <StatCard emoji="📦" value={stats.todayOrders} label="Today's Orders" color={Colors.primary} />
+          <StatCard emoji="💰" value={formatPrice(stats.todayEarnings)} label="Today's Earnings" color={Colors.success} />
           <StatCard
             emoji="⏳"
             value={stats.pending}
-            label="పెండింగ్ ఆర్డర్లు"
+            label="Pending Orders"
             color={stats.pending > 0 ? Colors.warning : Colors.grey}
             alert={stats.pending > 0}
           />
-          <StatCard emoji="📊" value={stats.totalOrders} label="మొత్తం ఆర్డర్లు" color={Colors.dark} />
+          <StatCard emoji="📊" value={stats.totalOrders} label="Total Orders" color={Colors.dark} />
         </View>
 
         {/* Pending Alert */}
@@ -155,9 +173,9 @@ export default function DashboardScreen({ navigation }) {
               <Text style={styles.pendingAlertEmoji}>🔔</Text>
               <View>
                 <Text style={styles.pendingAlertTitle}>
-                  {stats.pending} కొత్త ఆర్డర్{stats.pending > 1 ? 'లు' : ''}!
+                  {stats.pending} new order{stats.pending > 1 ? 's' : ''}!
                 </Text>
-                <Text style={styles.pendingAlertSub}>అంగీకరించడానికి తొందరగా వెళ్ళండి</Text>
+                <Text style={styles.pendingAlertSub}>Go accept them quickly</Text>
               </View>
             </View>
             <Ionicons name="chevron-forward" size={20} color={Colors.white} />
@@ -166,31 +184,31 @@ export default function DashboardScreen({ navigation }) {
 
         {/* Quick Actions */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>శీఘ్ర చర్యలు</Text>
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.quickActions}>
             <QuickAction
               icon="add-circle"
-              label="వస్తువు జోడించు"
+              label="Add Item"
               color={Colors.primary}
               onPress={() => navigation.navigate('MenuTab')}
             />
             <QuickAction
               icon="receipt"
-              label="ఆర్డర్లు చూడు"
+              label="Orders"
               color={Colors.success}
               onPress={() => navigation.navigate('OrdersTab')}
             />
             <QuickAction
               icon="wallet"
-              label="సంపాదన"
+              label="Earnings"
               color={Colors.secondary}
               onPress={() => navigation.navigate('EarningsTab')}
             />
             <QuickAction
               icon="share-social"
-              label="షేర్ చేయి"
+              label="Share"
               color={Colors.dark}
-              onPress={() => Alert.alert('త్వరలో వస్తుంది!')}
+              onPress={() => Alert.alert('Coming Soon!')}
             />
           </View>
         </View>
@@ -198,15 +216,15 @@ export default function DashboardScreen({ navigation }) {
         {/* Recent Orders */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>తాజా ఆర్డర్లు</Text>
+            <Text style={styles.sectionTitle}>Recent Orders</Text>
             <TouchableOpacity onPress={() => navigation.navigate('OrdersTab')}>
-              <Text style={styles.seeAll}>అన్నీ చూడు</Text>
+              <Text style={styles.seeAll}>See all</Text>
             </TouchableOpacity>
           </View>
           {recentOrders.length === 0 ? (
             <View style={styles.emptyOrders}>
               <Text style={styles.emptyEmoji}>📭</Text>
-              <Text style={styles.emptyText}>ఇంకా ఆర్డర్లు రాలేదు</Text>
+              <Text style={styles.emptyText}>No orders yet</Text>
             </View>
           ) : (
             recentOrders.map((order) => (
@@ -253,9 +271,9 @@ function StatCard({ emoji, value, label, color, alert }) {
 
 function QuickAction({ icon, label, color, onPress }) {
   return (
-    <TouchableOpacity style={styles.quickAction} onPress={onPress}>
-      <View style={[styles.quickActionIcon, { backgroundColor: color + '15' }]}>
-        <Ionicons name={icon} size={24} color={color} />
+    <TouchableOpacity style={styles.quickAction} onPress={onPress} activeOpacity={0.8}>
+      <View style={[styles.quickActionIcon, { backgroundColor: color + '18' }]}>
+        <Ionicons name={icon} size={26} color={color} />
       </View>
       <Text style={styles.quickActionLabel}>{label}</Text>
     </TouchableOpacity>
@@ -284,46 +302,57 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1, minWidth: '45%', backgroundColor: Colors.white,
-    borderRadius: Radius.lg, padding: Spacing.md, alignItems: 'center', gap: 4,
+    borderRadius: Radius.xl, padding: Spacing.lg, alignItems: 'center', gap: 6,
+    shadowColor: '#1C1C2E', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08, shadowRadius: 8, elevation: 3,
   },
-  statEmoji: { fontSize: 24 },
-  statValue: { fontSize: Fonts.sizes.xxl, fontWeight: '800' },
-  statLabel: { fontSize: Fonts.sizes.xs, color: Colors.grey, textAlign: 'center' },
+  statEmoji: { fontSize: 28 },
+  statValue: { fontSize: Fonts.sizes.xxl, fontWeight: '900', letterSpacing: -0.5 },
+  statLabel: { fontSize: Fonts.sizes.xs, color: Colors.grey, textAlign: 'center', fontWeight: '500' },
   pendingAlert: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: Colors.warning, marginHorizontal: Spacing.lg,
-    borderRadius: Radius.lg, padding: Spacing.md, marginBottom: Spacing.md,
+    borderRadius: Radius.xl, padding: Spacing.lg, marginBottom: Spacing.md,
+    shadowColor: Colors.warning, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35, shadowRadius: 10, elevation: 6,
   },
-  pendingAlertLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  pendingAlertEmoji: { fontSize: 24 },
-  pendingAlertTitle: { fontSize: Fonts.sizes.md, fontWeight: '700', color: Colors.white },
-  pendingAlertSub: { fontSize: Fonts.sizes.xs, color: 'rgba(255,255,255,0.85)' },
+  pendingAlertLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  pendingAlertEmoji: { fontSize: 28 },
+  pendingAlertTitle: { fontSize: Fonts.sizes.md, fontWeight: '800', color: Colors.white },
+  pendingAlertSub: { fontSize: Fonts.sizes.xs, color: 'rgba(255,255,255,0.85)', marginTop: 2 },
   section: { marginBottom: Spacing.lg },
   sectionHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: Spacing.lg, marginBottom: Spacing.md,
   },
-  sectionTitle: { fontSize: Fonts.sizes.lg, fontWeight: '700', color: Colors.dark, paddingHorizontal: Spacing.lg, marginBottom: Spacing.md },
-  seeAll: { fontSize: Fonts.sizes.sm, color: Colors.primary, fontWeight: '600' },
+  sectionTitle: { fontSize: Fonts.sizes.lg, fontWeight: '800', color: Colors.dark, paddingHorizontal: Spacing.lg, marginBottom: Spacing.md, letterSpacing: -0.2 },
+  seeAll: { fontSize: Fonts.sizes.sm, color: Colors.primary, fontWeight: '700' },
   quickActions: {
     flexDirection: 'row', paddingHorizontal: Spacing.lg, gap: Spacing.sm,
   },
-  quickAction: { flex: 1, alignItems: 'center', gap: 6 },
-  quickActionIcon: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  quickActionLabel: { fontSize: 10, fontWeight: '600', color: Colors.darkGrey, textAlign: 'center' },
+  quickAction: { flex: 1, alignItems: 'center', gap: 8 },
+  quickActionIcon: {
+    width: 56, height: 56, borderRadius: 18,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08, shadowRadius: 6, elevation: 2,
+  },
+  quickActionLabel: { fontSize: 10, fontWeight: '700', color: Colors.darkGrey, textAlign: 'center' },
   recentOrderCard: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     backgroundColor: Colors.white, marginHorizontal: Spacing.lg,
-    marginBottom: Spacing.sm, borderRadius: Radius.md, padding: Spacing.md,
+    marginBottom: Spacing.sm, borderRadius: Radius.lg, padding: Spacing.md,
+    shadowColor: '#1C1C2E', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06, shadowRadius: 6, elevation: 2,
   },
   recentOrderLeft: { flex: 1 },
-  recentOrderId: { fontSize: Fonts.sizes.sm, fontWeight: '700', color: Colors.dark },
-  recentOrderItems: { fontSize: Fonts.sizes.xs, color: Colors.grey, marginTop: 2 },
-  recentOrderRight: { alignItems: 'flex-end', gap: 4 },
-  statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 50 },
-  statusText: { fontSize: 10, fontWeight: '700' },
-  recentOrderTotal: { fontSize: Fonts.sizes.sm, fontWeight: '700', color: Colors.dark },
-  emptyOrders: { alignItems: 'center', paddingVertical: 32 },
-  emptyEmoji: { fontSize: 40, marginBottom: 8 },
-  emptyText: { fontSize: Fonts.sizes.sm, color: Colors.grey },
+  recentOrderId: { fontSize: Fonts.sizes.sm, fontWeight: '800', color: Colors.dark },
+  recentOrderItems: { fontSize: Fonts.sizes.xs, color: Colors.grey, marginTop: 3 },
+  recentOrderRight: { alignItems: 'flex-end', gap: 6 },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: Radius.full },
+  statusText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.2 },
+  recentOrderTotal: { fontSize: Fonts.sizes.sm, fontWeight: '800', color: Colors.dark },
+  emptyOrders: { alignItems: 'center', paddingVertical: 40 },
+  emptyEmoji: { fontSize: 48, marginBottom: 10 },
+  emptyText: { fontSize: Fonts.sizes.md, color: Colors.grey, fontWeight: '500' },
 });

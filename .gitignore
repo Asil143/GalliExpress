@@ -5,3 +5,20 @@ dist/
 .DS_Store
 android/
 ios/
+
+# Build artifacts
+*.apk
+*.aab
+*.ipa
+
+# Signing keystores (private keys — never commit)
+*.jks
+*.keystore
+
+# Environment secrets
+.env
+.env.local
+.env*.local
+
+# Claude
+.claude/

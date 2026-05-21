@@ -1,4 +1,4 @@
-// GalliExpress Partner — OTP Screen (reuses same logic as customer)
+// GalliExpress Partner — OTP Screen
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -6,7 +6,9 @@ import {
 } from 'react-native';
 import { OtpInput } from 'react-native-otp-entry';
 import { LinearGradient } from 'expo-linear-gradient';
+import auth from '@react-native-firebase/auth';
 import { Colors, Fonts, Spacing, Radius } from '../../../../shared/theme';
+import { formatPhone } from '../../../../shared/utils';
 
 export default function OTPScreen({ navigation, route }) {
   const { phone, confirmation } = route.params;
@@ -38,7 +40,7 @@ export default function OTPScreen({ navigation, route }) {
     try {
       await confirmation.confirm(code);
     } catch {
-      Alert.alert('తప్పు OTP', 'OTP సరైనది కాదు. మళ్ళీ ప్రయత్నించండి.');
+      Alert.alert('Invalid OTP', 'The OTP is incorrect. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -47,13 +49,13 @@ export default function OTPScreen({ navigation, route }) {
   return (
     <View style={styles.container}>
       <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()}>
-        <Text style={styles.backText}>← వెనక్కి</Text>
+        <Text style={styles.backText}>← Back</Text>
       </TouchableOpacity>
       <View style={styles.iconBox}>
         <Text style={styles.icon}>📲</Text>
       </View>
-      <Text style={styles.title}>OTP ధృవీకరించండి</Text>
-      <Text style={styles.sub}>+91 {phone} కి పంపిన 6 అంకెల OTP</Text>
+      <Text style={styles.title}>Verify OTP</Text>
+      <Text style={styles.sub}>Enter the 6-digit OTP sent to +91 {phone}</Text>
 
       <OtpInput
         numberOfDigits={6}
@@ -76,14 +78,20 @@ export default function OTPScreen({ navigation, route }) {
         disabled={otp.length !== 6 || loading}
       >
         <LinearGradient colors={['#1C1C2E', '#3D3D5C']} style={styles.btnGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-          {loading ? <ActivityIndicator color={Colors.white} /> : <Text style={styles.btnText}>ధృవీకరించండి ✓</Text>}
+          {loading ? <ActivityIndicator color={Colors.white} /> : <Text style={styles.btnText}>Verify ✓</Text>}
         </LinearGradient>
       </TouchableOpacity>
 
       <View style={{ alignItems: 'center', marginTop: 16 }}>
         {canResend
-          ? <TouchableOpacity onPress={() => navigation.replace('Login')}><Text style={styles.resend}>OTP మళ్ళీ పంపండి</Text></TouchableOpacity>
-          : <Text style={styles.timer}>మళ్ళీ పంపడానికి {countdown}s వేచి ఉండండి</Text>}
+          ? <TouchableOpacity onPress={async () => {
+              try {
+                const newConfirmation = await auth().signInWithPhoneNumber(formatPhone(phone));
+                navigation.setParams({ confirmation: newConfirmation });
+                startCountdown();
+              } catch { Alert.alert('Error', 'Failed to resend OTP. Please go back and try again.'); }
+            }}><Text style={styles.resend}>Resend OTP</Text></TouchableOpacity>
+          : <Text style={styles.timer}>Resend in {countdown}s</Text>}
       </View>
     </View>
   );

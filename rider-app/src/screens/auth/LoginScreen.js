@@ -1,5 +1,4 @@
 // GalliExpress Rider — Login Screen
-// Save as: rider-app/src/screens/auth/LoginScreen.js
 
 import React, { useState } from 'react';
 import {
@@ -17,7 +16,7 @@ export default function LoginScreen({ navigation }) {
 
   const handleSendOTP = async () => {
     if (!isValidPhone(phone)) {
-      Alert.alert('తప్పు నంబర్', 'సరైన 10 అంకెల నంబర్ నమోదు చేయండి');
+      Alert.alert('Invalid Number', 'Please enter a valid 10-digit number');
       return;
     }
     setLoading(true);
@@ -25,7 +24,7 @@ export default function LoginScreen({ navigation }) {
       const confirmation = await auth().signInWithPhoneNumber(formatPhone(phone));
       navigation.navigate('OTP', { phone, confirmation });
     } catch {
-      Alert.alert('తప్పు జరిగింది', 'OTP పంపడంలో వైఫల్యం');
+      Alert.alert('Error', 'Failed to send OTP');
     } finally {
       setLoading(false);
     }
@@ -36,13 +35,13 @@ export default function LoginScreen({ navigation }) {
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <LinearGradient colors={['#0A0A1A', '#1C1C2E']} style={styles.header}>
           <Text style={styles.emoji}>🛵</Text>
-          <Text style={styles.title}>రైడర్ లాగిన్</Text>
-          <Text style={styles.sub}>GalliExpress డెలివరీ పార్టనర్</Text>
+          <Text style={styles.title}>Rider Login</Text>
+          <Text style={styles.sub}>GalliExpress Delivery Partner</Text>
         </LinearGradient>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>మీ ఫోన్ నంబర్</Text>
-          <Text style={styles.cardSub}>రిజిస్టర్డ్ నంబర్‌తో లాగిన్ చేయండి</Text>
+          <Text style={styles.cardTitle}>Your Phone Number</Text>
+          <Text style={styles.cardSub}>Login with your registered number</Text>
 
           <View style={styles.inputRow}>
             <View style={styles.prefix}>
@@ -52,7 +51,7 @@ export default function LoginScreen({ navigation }) {
             <View style={styles.divider} />
             <TextInput
               style={styles.input}
-              placeholder="ఫోన్ నంబర్"
+              placeholder="Phone Number"
               placeholderTextColor={Colors.lightGrey}
               keyboardType="phone-pad"
               maxLength={10}
@@ -74,17 +73,17 @@ export default function LoginScreen({ navigation }) {
             >
               {loading
                 ? <ActivityIndicator color={Colors.white} />
-                : <Text style={styles.btnText}>OTP పంపండి →</Text>}
+                : <Text style={styles.btnText}>Send OTP →</Text>}
             </LinearGradient>
           </TouchableOpacity>
 
           <View style={styles.perksBox}>
-            <Text style={styles.perksTitle}>రైడర్ అవ్వడం వల్ల:</Text>
+            <Text style={styles.perksTitle}>Benefits of being a rider:</Text>
             {[
-              '💰 ప్రతి డెలివరీకి ₹25–₹40 సంపాదించండి',
-              '⏰ మీ సమయం మీరు ఎంచుకోండి',
-              '🛵 మీ సొంత బైక్‌తో పని చేయండి',
-              '📱 యాప్ ద్వారా అన్నీ మేనేజ్ చేయండి',
+              '💰 Earn ₹25–₹40 per delivery',
+              '⏰ Choose your own hours',
+              '🛵 Work with your own bike',
+              '📱 Manage everything via app',
             ].map((p, i) => (
               <Text key={i} style={styles.perk}>{p}</Text>
             ))}
@@ -92,8 +91,8 @@ export default function LoginScreen({ navigation }) {
         </View>
 
         <Text style={styles.footer}>
-          రైడర్ అవ్వడానికి:{'\n'}
-          <Text style={styles.footerLink}>+91 XXXXXXXXXX కి కాల్ చేయండి</Text>
+          To become a rider:{'\n'}
+          <Text style={styles.footerLink}>Call us at +91 XXXXXXXXXX</Text>
         </Text>
       </ScrollView>
     </KeyboardAvoidingView>

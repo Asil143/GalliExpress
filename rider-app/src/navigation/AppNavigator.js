@@ -27,11 +27,13 @@ function HomeStack() {
 function TabIcon({ icon, focused, label }) {
   return (
     <View style={styles.tabItem}>
-      <Ionicons
-        name={focused ? icon : `${icon}-outline`}
-        size={22}
-        color={focused ? Colors.primary : Colors.grey}
-      />
+      <View style={[styles.iconPill, focused && styles.iconPillActive]}>
+        <Ionicons
+          name={focused ? icon : `${icon}-outline`}
+          size={22}
+          color={focused ? Colors.primary : Colors.grey}
+        />
+      </View>
       <Text style={[styles.tabLabel, { color: focused ? Colors.primary : Colors.grey }]}>
         {label}
       </Text>
@@ -53,7 +55,7 @@ export default function AppNavigator() {
         component={HomeStack}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon icon="home" focused={focused} label="హోమ్" />
+            <TabIcon icon="home" focused={focused} label="Home" />
           ),
         }}
       />
@@ -62,7 +64,7 @@ export default function AppNavigator() {
         component={EarningsScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon icon="wallet" focused={focused} label="సంపాదన" />
+            <TabIcon icon="wallet" focused={focused} label="Earnings" />
           ),
         }}
       />
@@ -71,7 +73,7 @@ export default function AppNavigator() {
         component={ProfileScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon icon="person" focused={focused} label="ప్రొఫైల్" />
+            <TabIcon icon="person" focused={focused} label="Profile" />
           ),
         }}
       />
@@ -82,13 +84,23 @@ export default function AppNavigator() {
 const styles = StyleSheet.create({
   tabBar: {
     backgroundColor: Colors.white,
-    height: 65,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    paddingBottom: 8,
-    paddingTop: 4,
-    elevation: 10,
+    height: 70,
+    borderTopWidth: 0,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingBottom: 10,
+    paddingTop: 6,
+    shadowColor: '#1C1C2E',
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.14,
+    shadowRadius: 20,
+    elevation: 24,
   },
   tabItem: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
-  tabLabel: { fontSize: 10, fontWeight: '600', marginTop: 2 },
+  iconPill: {
+    width: 52, height: 34, borderRadius: 17,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  iconPillActive: { backgroundColor: Colors.primary + '18' },
+  tabLabel: { fontSize: 10, fontWeight: '600', marginTop: 3, letterSpacing: 0.2 },
 });

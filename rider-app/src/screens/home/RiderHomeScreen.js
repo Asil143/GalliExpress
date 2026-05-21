@@ -18,6 +18,7 @@ import { OrderStatus } from '../../../../shared/theme';
 export default function RiderHomeScreen({ navigation }) {
   const [isOnline, setIsOnline] = useState(false);
   const [todayStats, setTodayStats] = useState({ deliveries: 0, earnings: 0 });
+  const [riderRating, setRiderRating] = useState(null);
   const [incomingOrder, setIncomingOrder] = useState(null);
   const [riderName, setRiderName] = useState('');
   const [showRequestModal, setShowRequestModal] = useState(false);
@@ -31,6 +32,7 @@ export default function RiderHomeScreen({ navigation }) {
   useEffect(() => {
     loadRiderProfile();
     loadTodayStats();
+    loadRiderRating();
   }, []);
 
   useEffect(() => {
@@ -40,42 +42,72 @@ export default function RiderHomeScreen({ navigation }) {
       return;
     }
 
-    // Listen for orders assigned to this rider or unassigned READY orders
+    // Query CONFIRMED unassigned orders — rider gets notified as soon as restaurant accepts
     const unsub = firestore()
       .collection('orders')
-      .where('status', '==', OrderStatus.READY)
-      .where('town', '==', 'addanki')
+      .where('status', '==', OrderStatus.CONFIRMED)
       .where('riderId', '==', null)
-      .orderBy('createdAt', 'asc')
-      .limit(1)
-      .onSnapshot((snap) => {
-        if (!snap.empty) {
-          const order = { id: snap.docs[0].id, ...snap.docs[0].data() };
-          setIncomingOrder(order);
-          showDeliveryRequest(order);
-        }
-      });
+      .onSnapshot(
+        (snap) => {
+          if (!snap || snap.empty) return;
+          const sorted = snap.docs
+            .map((d) => ({ id: d.id, ...d.data() }))
+            .sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
+          if (sorted.length === 0) return;
+          const order = sorted[0];
+          if (!incomingOrder || incomingOrder?.id !== order.id) {
+            setIncomingOrder(order);
+            showDeliveryRequest(order);
+          }
+        },
+        () => {}
+      );
 
     return unsub;
   }, [isOnline]);
 
   const loadRiderProfile = async () => {
-    const snap = await firestore().collection('riders').doc(user?.uid).get();
-    if (snap.exists) setRiderName(snap.data().name || 'రైడర్');
+    if (!user?.uid) return;
+    const snap = await firestore().collection('riders').doc(user.uid).get();
+    if (snap?.exists) {
+      setRiderName(snap.data().name || 'Rider');
+      setIsOnline(snap.data().isOnline || false);
+    }
   };
 
   const loadTodayStats = async () => {
     const today = new Date(); today.setHours(0, 0, 0, 0);
-    const snap = await firestore()
-      .collection('orders')
-      .where('riderId', '==', user?.uid)
-      .where('status', '==', OrderStatus.DELIVERED)
-      .where('createdAt', '>=', firestore.Timestamp.fromDate(today))
-      .get();
-    setTodayStats({
-      deliveries: snap.size,
-      earnings: snap.size * DELIVERY_FEE_PER_ORDER,
-    });
+    try {
+      const snap = await firestore()
+        .collection('orders')
+        .where('riderId', '==', user?.uid)
+        .where('status', '==', OrderStatus.DELIVERED)
+        .get();
+      const todayDeliveries = snap.docs.filter((d) => {
+        const date = d.data().createdAt?.toDate?.() || new Date(0);
+        return date >= today;
+      });
+      setTodayStats({
+        deliveries: todayDeliveries.length,
+        earnings: todayDeliveries.length * DELIVERY_FEE_PER_ORDER,
+      });
+    } catch (e) {
+    }
+  };
+
+  const loadRiderRating = async () => {
+    try {
+      const snap = await firestore()
+        .collection('ratings')
+        .where('riderId', '==', user?.uid)
+        .get();
+      if (!snap.empty) {
+        const total = snap.docs.reduce((sum, d) => sum + (d.data().deliveryRating || 0), 0);
+        setRiderRating(parseFloat((total / snap.size).toFixed(1)));
+      } else {
+        setRiderRating(null);
+      }
+    } catch (e) {}
   };
 
   const startPulse = () => {
@@ -111,15 +143,18 @@ export default function RiderHomeScreen({ navigation }) {
     setAccepting(true);
     clearInterval(timerRef.current);
     try {
+      // Only assign riderId — status stays as-is (partner still controls CONFIRMED→PREPARING→READY)
+      // Status becomes ON_THE_WAY only after rider physically picks up from shop
       await firestore().collection('orders').doc(incomingOrder.id).update({
         riderId: user?.uid,
-        status: OrderStatus.ON_THE_WAY,
         updatedAt: firestore.FieldValue.serverTimestamp(),
       });
       setShowRequestModal(false);
-      navigation.navigate('ActiveDelivery', { orderId: incomingOrder.id, order: incomingOrder });
+      // Strip Firestore Timestamps (non-serializable) before passing in nav params
+      const serializableOrder = JSON.parse(JSON.stringify(incomingOrder));
+      navigation.navigate('ActiveDelivery', { orderId: incomingOrder.id, order: serializableOrder });
     } catch {
-      Alert.alert('తప్పు', 'అంగీకరించడంలో వైఫల్యం');
+      Alert.alert('Error', 'Failed to accept order');
     } finally {
       setAccepting(false);
     }
@@ -133,18 +168,20 @@ export default function RiderHomeScreen({ navigation }) {
   };
 
   const toggleOnline = async (val) => {
+    setIsOnline(val); // update UI immediately — Switch is controlled, must set state before any await
     if (val) {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('లొకేషన్ అవసరం', 'డెలివరీ చేయడానికి లొకేషన్ అనుమతి అవసరం');
-        return;
+      try {
+        await Location.requestForegroundPermissionsAsync();
+      } catch (e) {
       }
     }
-    setIsOnline(val);
-    await firestore().collection('riders').doc(user?.uid).update({
-      isOnline: val,
-      updatedAt: firestore.FieldValue.serverTimestamp(),
-    });
+    try {
+      await firestore().collection('riders').doc(user?.uid).set({
+        isOnline: val,
+        updatedAt: firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+    } catch (e) {
+    }
   };
 
   return (
@@ -153,7 +190,7 @@ export default function RiderHomeScreen({ navigation }) {
       <LinearGradient colors={['#1C1C2E', '#3D3D5C']} style={styles.header}>
         <View style={styles.headerTop}>
           <View>
-            <Text style={styles.greeting}>నమస్కారం 👋</Text>
+            <Text style={styles.greeting}>Hello 👋</Text>
             <Text style={styles.riderName}>{riderName}</Text>
           </View>
           <TouchableOpacity
@@ -174,10 +211,10 @@ export default function RiderHomeScreen({ navigation }) {
             ]} />
             <View>
               <Text style={styles.onlineLabel}>
-                {isOnline ? '🟢 ఆన్‌లైన్ — ఆర్డర్లు వస్తాయి' : '🔴 ఆఫ్‌లైన్'}
+                {isOnline ? '🟢 Online — Receiving orders' : '🔴 Offline'}
               </Text>
               <Text style={styles.onlineSub}>
-                {isOnline ? 'డెలివరీ రిక్వెస్ట్‌ల కోసం వేచి ఉంది' : 'ఆన్‌లైన్ అవ్వండి'}
+                {isOnline ? 'Waiting for delivery requests' : 'Go online to receive orders'}
               </Text>
             </View>
           </View>
@@ -197,19 +234,19 @@ export default function RiderHomeScreen({ navigation }) {
           <View style={[styles.statCard, Shadows.md]}>
             <Text style={styles.statEmoji}>🛵</Text>
             <Text style={styles.statValue}>{todayStats.deliveries}</Text>
-            <Text style={styles.statLabel}>ఈరోజు డెలివరీలు</Text>
+            <Text style={styles.statLabel}>Today's Deliveries</Text>
           </View>
           <View style={[styles.statCard, Shadows.md]}>
             <Text style={styles.statEmoji}>💰</Text>
             <Text style={[styles.statValue, { color: Colors.success }]}>
               {formatPrice(todayStats.earnings)}
             </Text>
-            <Text style={styles.statLabel}>ఈరోజు సంపాదన</Text>
+            <Text style={styles.statLabel}>Today's Earnings</Text>
           </View>
           <View style={[styles.statCard, Shadows.md]}>
             <Text style={styles.statEmoji}>⭐</Text>
-            <Text style={styles.statValue}>5.0</Text>
-            <Text style={styles.statLabel}>రేటింగ్</Text>
+            <Text style={styles.statValue}>{riderRating !== null ? riderRating : '—'}</Text>
+            <Text style={styles.statLabel}>Rating</Text>
           </View>
         </View>
 
@@ -217,13 +254,10 @@ export default function RiderHomeScreen({ navigation }) {
         {!isOnline && (
           <View style={styles.offlinePrompt}>
             <Text style={styles.offlineEmoji}>💤</Text>
-            <Text style={styles.offlineTitle}>మీరు ఆఫ్‌లైన్‌లో ఉన్నారు</Text>
+            <Text style={styles.offlineTitle}>You are Offline</Text>
             <Text style={styles.offlineSub}>
-              ఆర్డర్లు స్వీకరించడానికి పైన ఉన్న స్విచ్ ఆన్ చేయండి
+              Toggle the switch above to start receiving orders
             </Text>
-            <TouchableOpacity style={styles.goOnlineBtn} onPress={() => toggleOnline(true)}>
-              <Text style={styles.goOnlineBtnText}>🟢 ఆన్‌లైన్ అవ్వు</Text>
-            </TouchableOpacity>
           </View>
         )}
 
@@ -232,18 +266,18 @@ export default function RiderHomeScreen({ navigation }) {
             <Animated.Text style={[styles.waitingEmoji, { transform: [{ scale: pulseAnim }] }]}>
               🛵
             </Animated.Text>
-            <Text style={styles.waitingTitle}>ఆర్డర్ కోసం వేచి ఉంది...</Text>
-            <Text style={styles.waitingSub}>డెలివరీ రిక్వెస్ట్ వచ్చినప్పుడు నోటిఫికేషన్ వస్తుంది</Text>
+            <Text style={styles.waitingTitle}>Waiting for orders...</Text>
+            <Text style={styles.waitingSub}>You'll get a notification when a delivery request arrives</Text>
           </View>
         )}
 
         {/* Tips */}
         <View style={styles.tipsCard}>
-          <Text style={styles.tipsTitle}>💡 సూచనలు</Text>
+          <Text style={styles.tipsTitle}>💡 Tips</Text>
           {[
-            '⚡ త్వరగా అంగీకరించినవారికి ఎక్కువ ఆర్డర్లు వస్తాయి',
-            '⭐ మంచి రేటింగ్ కోసం సమయానికి డెలివరీ చేయండి',
-            '📱 ఆర్డర్ రాగానే కస్టమర్‌కి కాల్ చేయండి',
+            '⚡ Accepting faster gets you more orders',
+            '⭐ Deliver on time for a good rating',
+            '📱 Call the customer as soon as you pick up',
           ].map((tip, i) => (
             <Text key={i} style={styles.tipItem}>{tip}</Text>
           ))}
@@ -255,34 +289,34 @@ export default function RiderHomeScreen({ navigation }) {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.timerRow}>
-              <Text style={styles.timerLabel}>అంగీకరించడానికి సమయం</Text>
+              <Text style={styles.timerLabel}>Time to accept</Text>
               <View style={[styles.timerBadge, timer <= 10 && { backgroundColor: Colors.error }]}>
                 <Text style={styles.timerText}>{timer}s</Text>
               </View>
             </View>
 
-            <Text style={styles.newOrderTitle}>🔔 కొత్త డెలివరీ రిక్వెస్ట్!</Text>
+            <Text style={styles.newOrderTitle}>🔔 New Delivery Request!</Text>
 
             {incomingOrder && (
               <>
                 <View style={styles.modalDetail}>
                   <Ionicons name="storefront-outline" size={18} color={Colors.primary} />
                   <Text style={styles.modalDetailText}>
-                    పికప్: <Text style={{ fontWeight: '700' }}>{incomingOrder.shopName}</Text>
+                    Pickup: <Text style={{ fontWeight: '700' }}>{incomingOrder.shopName}</Text>
                   </Text>
                 </View>
                 <View style={styles.modalDetail}>
                   <Ionicons name="location-outline" size={18} color={Colors.success} />
                   <Text style={styles.modalDetailText} numberOfLines={2}>
-                    డెలివరీ: {incomingOrder.address?.line1}
+                    Delivery: {incomingOrder.address?.address || incomingOrder.address?.line1 || 'Address not set'}
                   </Text>
                 </View>
                 <View style={styles.modalDetail}>
                   <Ionicons name="cash-outline" size={18} color={Colors.secondary} />
                   <Text style={styles.modalDetailText}>
-                    ఆర్డర్ మొత్తం: <Text style={{ fontWeight: '700' }}>{formatPrice(incomingOrder.total)}</Text>
+                    Order Total: <Text style={{ fontWeight: '700' }}>{formatPrice(incomingOrder.total)}</Text>
                     {'  '}|{'  '}
-                    మీ సంపాదన: <Text style={{ fontWeight: '700', color: Colors.success }}>{formatPrice(DELIVERY_FEE_PER_ORDER)}</Text>
+                    Your Earning: <Text style={{ fontWeight: '700', color: Colors.success }}>{formatPrice(DELIVERY_FEE_PER_ORDER)}</Text>
                   </Text>
                 </View>
               </>
@@ -290,7 +324,7 @@ export default function RiderHomeScreen({ navigation }) {
 
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.rejectModalBtn} onPress={handleReject}>
-                <Text style={styles.rejectModalText}>✗ తిరస్కరించు</Text>
+                <Text style={styles.rejectModalText}>✗ Reject</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.acceptModalBtn} onPress={handleAccept} disabled={accepting}>
                 <LinearGradient
@@ -298,7 +332,7 @@ export default function RiderHomeScreen({ navigation }) {
                   style={styles.acceptModalGrad}
                   start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                 >
-                  <Text style={styles.acceptModalText}>✓ అంగీకరించు</Text>
+                  <Text style={styles.acceptModalText}>✓ Accept</Text>
                 </LinearGradient>
               </TouchableOpacity>
             </View>
@@ -341,11 +375,6 @@ const styles = StyleSheet.create({
   offlineEmoji: { fontSize: 52 },
   offlineTitle: { fontSize: Fonts.sizes.xl, fontWeight: '700', color: Colors.dark },
   offlineSub: { fontSize: Fonts.sizes.sm, color: Colors.grey, textAlign: 'center' },
-  goOnlineBtn: {
-    backgroundColor: Colors.success, paddingHorizontal: 32,
-    paddingVertical: 14, borderRadius: Radius.full, marginTop: 8,
-  },
-  goOnlineBtnText: { color: Colors.white, fontWeight: '800', fontSize: Fonts.sizes.md },
   waitingCard: {
     alignItems: 'center', backgroundColor: Colors.white,
     marginHorizontal: Spacing.lg, borderRadius: Radius.xl,
